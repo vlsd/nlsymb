@@ -219,6 +219,11 @@ class trajectory:
     def addpoint(self, t, **kwargs):
         # keyword arguments in the form x=val
         self._t.append(t)
+        if t > self.tmax:
+            self.tmax = t
+        if t < self.tmin:
+            self.tmin = t
+
         for name, val in kwargs.iteritems():
             current = getattr(self, '_' + name)
             setattr(self, '_' + name, current + [val])

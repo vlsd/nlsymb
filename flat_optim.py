@@ -29,6 +29,7 @@ class symSystem:
 
     # create Ohm and dOhm
     _Ohm = np.array([z[0], z[1] + sym.sin(z[0])])
+
     _Psi = np.array([q[0], q[1] - sym.sin(q[0])])
 
     alltoz = [(q[i], _Ohm[i]) for i in range(dim)] + \
@@ -39,9 +40,11 @@ class symSystem:
 
     # dOhm/dz
     _dOhm = tdiff(_Ohm, z)
+    #_dohm = tLambdify(z, _dOhm)
 
     # dPsi/dq
     _dPsi = tdiff(_Psi, q)
+    #_dpsi = tLambdify(q, _dPsi)
 
     def Ohm(self, z):
         return tensorEval(self._Ohm, self.z, z)
@@ -58,7 +61,17 @@ class symSystem:
     # this function takes and returns numerical values
     def xtopq(self, x):
         pz = self.P(x[:2])
-        return tensorEval(self._Ohm, self.z, pz)
+        return self._ohm(*pz)
+
+    def xtopz(self, x):
+        return self.P(x[:2])
+
+    def xtoq(self, x):
+        q = x[:2]
+        return self._ohm(*q)
+
+    def xtoz(self, x):
+        return x[:2]
 
     # M as a function of z
     def _buildMq(self):
@@ -240,6 +253,8 @@ class symSystem:
         self._dfum.callable(*params)
 
         self.controller = lambda t, x: [0, 0]
+        self._ohm = tLambdify(self.z, self._Ohm)
+        self._psi = tLambdify(self.q, self._Psi)
 
 
 if __name__ == "__main__":
@@ -280,9 +295,11 @@ if __name__ == "__main__":
         with Timer():
             lqrtest = LQR(lintraj.A, lintraj.B, tlims=tlims)
 
+    """
     q = map(s.xtopq, lintraj.x.y)
 
     plt.plot([qq[0] for qq in q], [np.sin(qq[0]) for qq in q])
     plt.plot([qq[0] for qq in q], [qq[1] for qq in q])
     plt.axis('equal')
     plt.show()
+    """
