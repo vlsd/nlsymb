@@ -215,14 +215,32 @@ class trajectory:
         for name in args:
             setattr(self, '_' + name, [])
         self._t = []
+        self.tmax = None
+        self.tmin = None
+
+    def __call__(self, t):
+        # evaluates at t if there is only one series stored
+        # TODO make sure this works; not really necessary now
+        num = 0
+        for k in self.__dict__.keys():
+            if k[0] is not '_':
+                num += 1
+                key = k
+        if num is 1:
+            func = getattr(self, key)
+            return func(t)
 
     def addpoint(self, t, **kwargs):
         # keyword arguments in the form x=val
-        self._t.append(t)
-        if t > self.tmax:
+        if self._t is []:
             self.tmax = t
-        if t < self.tmin:
             self.tmin = t
+        else:
+            if t > self.tmax:
+                self.tmax = t
+            if t < self.tmin:
+                self.tmin = t
+        self._t.append(t)
 
         for name, val in kwargs.iteritems():
             current = getattr(self, '_' + name)
@@ -260,7 +278,7 @@ class system():
         # skipping a bunch of middleman bullshit that might
         # otherwise have to happen
 
-        self.tlims = tlims 
+        self.tlims = tlims
         keys = kwargs.keys()
 
         if 'xinit' in keys:
@@ -326,6 +344,7 @@ class system():
             traj.addpoint(tt, **dict)
 
         return traj
+
 
 if __name__ == "__main__":
     pass

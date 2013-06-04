@@ -257,6 +257,20 @@ class symSystem:
         self._psi = tLambdify(self.q, self._Psi)
 
 
+class Controller():
+    def __init__(self, **kwargs):
+        self.ref = kwargs['reference']
+        if 'K' in kwargs.keys():
+            self.K = kwargs['K']
+        else:
+            m = len(self.ref.u(0))
+            n = len(self.ref.x(0))
+            self.K = lambda t: np.zeros((m, n))
+
+    def __call__(self, t, x):
+        return self.ref.u(t) + np.dot(self.K(t), self.ref.x(t) - x)
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import time
@@ -264,11 +278,6 @@ if __name__ == "__main__":
     tlims = (0, 10)
 
     """
-    ref = trajectory('x', 'u')
-    ref.addpoint(0, x=[0, 10, 1, -2], u=[0, 0])
-    ref.addpoint(10, x=[6, -5, 0, 0], u=[0, 0])
-    ref.interpolate()
-
     t = np.linspace(0, 10, 100)
     x = map(ref.x, t)
     u = map(ref.u, t)
@@ -282,11 +291,17 @@ if __name__ == "__main__":
             xinit = np.concatenate((s.Psi(qinit),
                                     np.dot(s.dPsi(qinit), qdoti)))
 
-        with Timer():
-            nlsys = system(s.f, tlims=tlims, xinit=xinit,
-                           dfdx=s.dfdx, dfdu=s.dfdu)
-            nlsys.set_phi(s.phi)
-            nlsys.set_u(s.controller)
+        ref = trajectory('x', 'u')
+        ref.addpoint(0, x=xinit, u=[0, 0])
+        ref.addpoint(10, x=[6, -5, 0, 0], u=[0, 0])
+        ref.interpolate()
+
+        nlsys = system(s.f, tlims=tlims, xinit=xinit,
+                       dfdx=s.dfdx, dfdu=s.dfdu)
+        nlsys.set_phi(s.phi)
+
+        zerocontrol = Controller(reference=ref)
+        nlsys.set_u(zerocontrol)
 
         with Timer():
             lintraj = nlsys.integrate()
@@ -294,7 +309,12 @@ if __name__ == "__main__":
 
         with Timer():
             lqrtest = LQR(lintraj.A, lintraj.B, tlims=tlims)
+            nucontrol = Controller(reference=ref, K=lqrtest.K.K)
 
+        with Timer():
+            nlsys.set_u(nucontrol)
+            nutraj = nlsys.integrate()
+            nutraj.interpolate()
     """
     q = map(s.xtopq, lintraj.x.y)
 

@@ -1,5 +1,7 @@
 import numpy as np
 from aux import matmult, trajectory
+from scipy.linalg import schur
+from numpy.linalg import inv
 
 
 class LQR:
@@ -26,17 +28,22 @@ class LQR:
             self.Q = lambda t: np.eye(self.n)
 
         if R is None:
-            self.R = lambda t: np.eye(self.m)
+            self.R = lambda t: 10*np.eye(self.m)
 
         if P is None:
             self.Pf = np.eye(self.n)
 
+        # this is a trajectory object
         self.P = self.cdre()
+
+        self.K = trajectory('K')
+        for (t, P) in zip(self.P._t, self.P.P.y):
+            K = matmult(inv(self.R(t)), self.B(t).T, P)
+            self.K.addpoint(t, K=K)
+        self.K.interpolate()
 
     # returns Pbar
     def care(self, t):
-        from scipy.linalg import schur
-        from numpy.linalg import inv
 
         A = self.A(t)
         B = self.B(t)
@@ -98,4 +105,4 @@ class LQR:
             ptraj.addpoint(tt, P=pp)
         ptraj.interpolate()
 
-        return ptraj.P
+        return ptraj
