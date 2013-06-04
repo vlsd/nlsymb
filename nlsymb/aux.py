@@ -1,5 +1,4 @@
 import numpy as np
-#import scipy
 import sympy
 import sympy.core
 import sympy.core.symbol
@@ -74,7 +73,7 @@ def sysIntegrate(func, init,
 
     solver = ode(func, jac)
     solver.set_integrator('vode',
-                          max_step=1e-1, min_step=1e-7,
+                          max_step=1e-1,
                           method=method)
     solver.set_initial_value(init, ti)
 
@@ -92,6 +91,7 @@ def sysIntegrate(func, init,
             if dp*dn < 0:               # if a crossing occured
                 # use interpolation (linear) to find the time
                 # and config at the jump
+                # TODO do a line search instead scipy.optimize.brentq()
                 alpha = dp/(dn-dp)
                 tcross = t[-2] - alpha*(t[-1] - t[-2])
                 xcross = x[-2] - alpha*(x[-1] - x[-2])

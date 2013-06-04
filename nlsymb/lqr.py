@@ -28,7 +28,7 @@ class LQR:
             self.Q = lambda t: np.eye(self.n)
 
         if R is None:
-            self.R = lambda t: 10*np.eye(self.m)
+            self.R = lambda t: 100*np.eye(self.m)
 
         if P is None:
             self.Pf = np.eye(self.n)
