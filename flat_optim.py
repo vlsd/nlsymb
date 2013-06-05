@@ -111,7 +111,8 @@ class symSystem:
                                          'i,ijk,k', zdot, self.dMz, zdot)
                                      + object_einsum(
                                          'i,ikl,k', zdot, self.dMz, zdot)/2
-                                     + self.dVz + self.u
+                                     + self.dVz
+                                     - np.dot(self._dOhm.T, self.u)
                                      )
                               ))
 
@@ -124,7 +125,7 @@ class symSystem:
 
         out = -object_einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
             + object_einsum('i,ikj,k', zzdot, self.dMzz, zzdot)/2
-        out = np.dot(self.Mzzi, out + self.dVzz + self.u)
+        out = np.dot(self.Mzzi, out + self.dVzz - np.dot(self._dOhm.T, self.u))
         out = out - object_einsum('ijk,j,k',
                                   tdiff(self._dP, self.z), zdot, zdot)
         # note: dP is the same as dPinverse. woo!
@@ -268,7 +269,7 @@ class Controller():
             self.K = lambda t: np.zeros((m, n))
 
     def __call__(self, t, x):
-        return self.ref.u(t) - np.dot(self.K(t), self.ref.x(t) - x)
+        return self.ref.u(t) + np.dot(self.K(t), self.ref.x(t) - x)
 
 
 if __name__ == "__main__":
@@ -293,7 +294,7 @@ if __name__ == "__main__":
 
         ref = trajectory('x', 'u')
         ref.addpoint(0, x=xinit, u=[0, 0])
-        ref.addpoint(2, x=[-2, -7, 0, 0], u=[0, 0])
+        ref.addpoint(2, x=[-6, -7, 0, 0], u=[0, 0])
         ref.interpolate()
 
         nlsys = system(s.f, tlims=tlims, xinit=xinit,
@@ -315,13 +316,13 @@ if __name__ == "__main__":
             nlsys.set_u(nucontrol)
             nutraj = nlsys.integrate()
             nutraj.interpolate()
-    
+
     qref = [s.xtopq(ref.x(t)) for t in lintraj._t]
     q = map(s.xtopq, lintraj.x.y)
     qnu = map(s.xtopq, nutraj.x.y)
 
-    plt.plot([qq[0] for qq in q+qnu+qref], 
-             [np.sin(qq[0]) for qq in q+qnu+qref])
+    plt.plot([qq[0] for qq in q],
+             [np.sin(qq[0]) for qq in q])
     plt.plot([qq[0] for qq in qref], [qq[1] for qq in qref])
     plt.plot([qq[0] for qq in q], [qq[1] for qq in q])
     plt.plot([qq[0] for qq in qnu], [qq[1] for qq in qnu])
