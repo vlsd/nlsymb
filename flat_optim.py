@@ -272,6 +272,9 @@ class Controller():
         return self.ref.u(t) + np.dot(self.K(t), self.ref.x(t) - x)
 
 
+class linSystem(
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import time
@@ -310,7 +313,7 @@ if __name__ == "__main__":
 
         with Timer():
             lqrtest = LQR(lintraj.A, lintraj.B, tlims=tlims)
-            nucontrol = Controller(reference=ref, K=lqrtest.K.K)
+            nucontrol = Controller(reference=ref, K=lqrtest.K)
 
         with Timer():
             nlsys.set_u(nucontrol)

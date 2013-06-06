@@ -2,6 +2,7 @@ import numpy as np
 from aux import matmult, trajectory
 from scipy.linalg import schur
 from numpy.linalg import inv
+from scipy.integrate import ode
 
 
 class LQR:
@@ -10,6 +11,9 @@ class LQR:
         attribs = {'Q': Q, 'R': R, 'Pf': P, 'A': A, 'B': B, 'tlims': tlims}
         for k, v in attribs.iteritems():
             setattr(self, k, v)
+
+        self.t0 = tlims[0]
+        self.tf = tlims[1]
 
         Adim = np.array(A(tlims[0])).shape
         if Adim[0] != Adim[1]:
@@ -34,13 +38,15 @@ class LQR:
             self.Pf = np.eye(self.n)
 
         # this is a trajectory object
-        self.P = self.cdre()
+        self.Ptraj = self.cdre()
+        self.P = self.Ptraj.P
 
-        self.K = trajectory('K')
-        for (t, P) in zip(self.P._t, self.P.P.y):
+        self.Ktraj = trajectory('K')
+        for (t, P) in zip(self.Ptraj._t, self.Ptraj.P.y):
             K = matmult(inv(self.R(t)), self.B(t).T, P)
-            self.K.addpoint(t, K=K)
-        self.K.interpolate()
+            self.Ktraj.addpoint(t, K=K)
+        self.Ktraj.interpolate()
+        self.K = self.Ktraj.K
 
     # returns Pbar
     def care(self, t):
@@ -72,8 +78,6 @@ class LQR:
         P0 = self.care(tend)
         n = self.n
 
-        from numpy.linalg import inv
-
         # this implements the riccati equation
         # by flattening the matrix P into a vector
         def Pdot(s, P):
@@ -86,8 +90,7 @@ class LQR:
             return -Pd.ravel()
 
         # leaving this here until I change sysIntegrate to handle
-        # backwards differentiation
-        from scipy.integrate import ode
+        # backwards integration
         solver = ode(Pdot)
         solver.set_integrator('vode', max_step=1e-1)
         solver.set_initial_value(P0.ravel(), s0)
@@ -106,3 +109,80 @@ class LQR:
         ptraj.interpolate()
 
         return ptraj
+
+    def bintegrate(self, func, shape, tlims):
+        # TODO write this to do backwards, matrix integration
+        pass
+
+
+class DescentDir(LQR):
+    def __init__(self, traj, ref, **kwargs):
+        LQR.__init__(self, traj.A, traj.B, **kwargs)
+        self.traj = traj
+        self.ref = ref
+        self.rf = np.dot(self.Pf, self.traj.x(tf) - self.ref.x(tf))
+        self.a = lambda t: np.dot(self.Q(t), self.traj.x(t) - self.ref.x(t))
+        self.b = lambda t: np.dot(self.R(t), self.traj.u(t) - self.ref.u(t))
+
+        self.r = self.rsolve()
+        if 'z0' in kwargs.keys():
+            self.z0 = kwargs['z0']
+        else:
+            self.z0 = -np.dot(inv(self.P(0)), self.r(0))
+
+        self.direction = self.solve(z0)
+        self.z = self.direction.z
+        self.v = self.direction.v
+
+    def rsolve(self):
+        def rdot(s, r):
+            t = -s
+            A = self.A(t)
+            B = self.B(t)
+            Rinv = inv(self.R(t))
+            P = self.P(t)
+            out = np.dot((A - matmult(b, Rinv, B.T, P)).T, self.r(t))
+            out += a - mamult(P, B, Rinv, b)
+            # two minus signs make a plus below (one from equation
+            # and one from backwards integration)
+            return out
+
+        # leaving this here until I change sysIntegrate to handle
+        # backwards integration
+        solver = ode(rdot)
+        solver.set_integrator('vode', max_step=1e-1)
+        solver.set_initial_value(self.rf, -self.tf)
+        t = [-tf]
+        r = [rf]
+
+        while solver.successful() and solver.t < self.t0:
+            solver.integrate(self.t0, step=True)
+            r.append(solver.y)
+            t.append(-solver.t)
+
+        rtraj = trajectory('r')
+        for tt, rr in zip(t, r):
+            rtraj.addpoint(tt, r=rr)
+        rtraj.interpolate
+
+        return rtraj.r
+
+    def solve(self, z0):
+        def v(t, z):
+            Ri = inv(self.R(t))
+            b = self.b(t)
+            P = self.P(t)
+            r = self.r(t)
+            B = self.B(t)
+            return -np.dot(Ri, b + matmult(B.T, P, z) + np.dot(B.T, r))
+
+        def zdot(t, z):
+            return np.dot(self.A(t), z) + np.dot(self.B(t), v(t, z))
+
+        (t, z) = sysIntegrate(zdot, z0, tlimits=self.tlims)
+        lintraj = trajectory('z', 'v')
+        for (tt, zz) in zip(t, z):
+            lintraj.addpoint(tt, z=zz, v=v(tt,zz))
+        lintraj.interpolate()
+
+        return lintraj
