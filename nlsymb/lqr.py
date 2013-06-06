@@ -1,5 +1,5 @@
 import numpy as np
-from aux import matmult, trajectory
+from aux import matmult, trajectory, sysIntegrate
 from scipy.linalg import schur
 from numpy.linalg import inv
 from scipy.integrate import ode
@@ -7,7 +7,8 @@ from scipy.integrate import ode
 
 class LQR:
     # a class representing a LQR problem
-    def __init__(self, A, B, P=None, Q=None, R=None, tlims=(0, 10)):
+    def __init__(self, A, B, P=None, Q=None, R=None, tlims=(0, 10),
+                 Rscale=1, Qscale=1):
         attribs = {'Q': Q, 'R': R, 'Pf': P, 'A': A, 'B': B, 'tlims': tlims}
         for k, v in attribs.iteritems():
             setattr(self, k, v)
@@ -29,10 +30,14 @@ class LQR:
 
         if Q is None:
             # define it as identity
-            self.Q = lambda t: np.eye(self.n)
+            self.Q = lambda t: Qscale*np.eye(self.n)
+        else:
+            self.Q = lambda t: Qscale*self.Q(t)
 
         if R is None:
-            self.R = lambda t: 10*np.eye(self.m)
+            self.R = lambda t: Rscale*np.eye(self.m)
+        else:
+            self.R = lambda t: Rscale*self.R(t)
 
         if P is None:
             self.Pf = np.eye(self.n)
@@ -115,24 +120,50 @@ class LQR:
         pass
 
 
+class Controller():
+    def __init__(self, **kwargs):
+        self.ref = kwargs['reference']
+        if 'K' in kwargs.keys():
+            self.K = kwargs['K']
+        else:
+            m = len(self.ref.u(0))
+            n = len(self.ref.x(0))
+            self.K = lambda t: np.zeros((m, n))
+
+    def __call__(self, t, x):
+        return self.ref.u(t) + np.dot(self.K(t), self.ref.x(t) - x)
+
+
 class DescentDir(LQR):
     def __init__(self, traj, ref, **kwargs):
         LQR.__init__(self, traj.A, traj.B, **kwargs)
+
+        print "done with lqr in descentdir"
+
         self.traj = traj
         self.ref = ref
+        tf = self.tf
         self.rf = np.dot(self.Pf, self.traj.x(tf) - self.ref.x(tf))
         self.a = lambda t: np.dot(self.Q(t), self.traj.x(t) - self.ref.x(t))
         self.b = lambda t: np.dot(self.R(t), self.traj.u(t) - self.ref.u(t))
 
         self.r = self.rsolve()
+
         if 'z0' in kwargs.keys():
             self.z0 = kwargs['z0']
         else:
-            self.z0 = -np.dot(inv(self.P(0)), self.r(0))
+            #self.z0 = -np.dot(inv(self.P(0)), self.r(0))
+            self.z0 = np.zeros(self.n)
 
-        self.direction = self.solve(z0)
+        print "solving for z"
+        self.direction = self.solve(self.z0)
+        print "solved for z"
+
         self.z = self.direction.z
         self.v = self.direction.v
+        self._z = self.direction._z
+        self._v = self.direction._v
+        self._t = self.direction._t
 
     def rsolve(self):
         def rdot(s, r):
@@ -141,8 +172,10 @@ class DescentDir(LQR):
             B = self.B(t)
             Rinv = inv(self.R(t))
             P = self.P(t)
-            out = np.dot((A - matmult(b, Rinv, B.T, P)).T, self.r(t))
-            out += a - mamult(P, B, Rinv, b)
+            b = self.b(t)
+            a = self.a(t)
+            out = np.dot((A - matmult(B, Rinv, B.T, P)).T, r)
+            out += a - matmult(P, B, Rinv, b)
             # two minus signs make a plus below (one from equation
             # and one from backwards integration)
             return out
@@ -150,10 +183,10 @@ class DescentDir(LQR):
         # leaving this here until I change sysIntegrate to handle
         # backwards integration
         solver = ode(rdot)
-        solver.set_integrator('vode', max_step=1e-1)
+        solver.set_integrator('vode', max_step=1e-1, min_step=1e-10)
         solver.set_initial_value(self.rf, -self.tf)
-        t = [-tf]
-        r = [rf]
+        t = [-self.tf]
+        r = [self.rf]
 
         while solver.successful() and solver.t < self.t0:
             solver.integrate(self.t0, step=True)
@@ -163,7 +196,7 @@ class DescentDir(LQR):
         rtraj = trajectory('r')
         for tt, rr in zip(t, r):
             rtraj.addpoint(tt, r=rr)
-        rtraj.interpolate
+        rtraj.interpolate()
 
         return rtraj.r
 
@@ -182,7 +215,17 @@ class DescentDir(LQR):
         (t, z) = sysIntegrate(zdot, z0, tlimits=self.tlims)
         lintraj = trajectory('z', 'v')
         for (tt, zz) in zip(t, z):
-            lintraj.addpoint(tt, z=zz, v=v(tt,zz))
+            lintraj.addpoint(tt, z=zz, v=v(tt, zz))
         lintraj.interpolate()
 
         return lintraj
+
+    def __rmul__(self, scalar):
+        # should only be called for a descent direction
+        # which only has z and v components
+        out = trajectory('z', 'v')
+        for (t, z, v) in zip(self._t, self._z, self._v):
+            out.addpoint(t, z=scalar*z, v=scalar*v)
+
+        out.interpolate()
+        return out

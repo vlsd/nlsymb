@@ -261,6 +261,13 @@ class trajectory:
                 ifunc = interxpolate(self._t, getattr(self, k), axis=0)
                 setattr(self, k[1:], ifunc)
 
+    def __iadd__(self, direction):
+        for (t, x, u) in zip(self._t, self._x, self._u):
+            x += direction.z(t)
+            u += direction.v(t)
+        self.interpolate()
+        return self
+
 
 class Timer():
     def __enter__(self):

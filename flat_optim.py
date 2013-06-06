@@ -258,23 +258,6 @@ class symSystem:
         self._psi = tLambdify(self.q, self._Psi)
 
 
-class Controller():
-    def __init__(self, **kwargs):
-        self.ref = kwargs['reference']
-        if 'K' in kwargs.keys():
-            self.K = kwargs['K']
-        else:
-            m = len(self.ref.u(0))
-            n = len(self.ref.x(0))
-            self.K = lambda t: np.zeros((m, n))
-
-    def __call__(self, t, x):
-        return self.ref.u(t) + np.dot(self.K(t), self.ref.x(t) - x)
-
-
-class linSystem(
-
-
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import time
@@ -307,18 +290,41 @@ if __name__ == "__main__":
         zerocontrol = Controller(reference=ref)
         nlsys.set_u(zerocontrol)
 
+        trajectories = []
         with Timer():
             lintraj = nlsys.integrate()
             lintraj.interpolate()
+            trajectories.append(deepcopy(lintraj))
 
         with Timer():
-            lqrtest = LQR(lintraj.A, lintraj.B, tlims=tlims)
+            lqrtest = LQR(lintraj.A, lintraj.B, tlims=tlims, Rscale=10)
+            # use reference trajectory as initial guess
+            # does not have to be the case
             nucontrol = Controller(reference=ref, K=lqrtest.K)
 
         with Timer():
             nlsys.set_u(nucontrol)
             nutraj = nlsys.integrate()
             nutraj.interpolate()
+            trajectories.append(deepcopy(nutraj))
+
+        with Timer():
+            print "calculating descent direction"
+            descdir = DescentDir(nutraj, ref, tlims=tlims, Rscale=100)
+
+        with Timer():
+            print "applying descent direction"
+            # this is where the line search goes
+            nutraj += -1 * descdir
+
+        with Timer():
+            # projecting
+            nulqr = LQR(nutraj.A, nutraj.B, tlims=tlims, Rscale=10)
+            nucontrol = Controller(reference=nutraj, K=nulqr.K)
+            nlsys.set_u(nucontrol)
+            nutraj = nlsys.integrate()
+            nutraj.interpolate()
+            trajectories.append(deepcopy(nutraj))
 
     qref = [s.xtopq(ref.x(t)) for t in lintraj._t]
     q = map(s.xtopq, lintraj.x.y)
