@@ -2,7 +2,7 @@ import numpy as np
 from aux import matmult, trajectory, sysIntegrate
 from scipy.linalg import schur
 from numpy.linalg import inv
-from scipy.integrate import ode
+from scipy.integrate import ode, quad
 
 
 class LQR:
@@ -135,6 +135,42 @@ class Controller():
 
 
 class DescentDir(LQR):
+    def cost(self, traj=None):
+        if traj is None:
+            traj = self.traj
+
+        def func(t):
+            x = traj.x(t)
+            xd = self.ref.x(t)
+            u = traj.u(t)
+            ud = self.ref.u(t)
+            return 0.5 * (matmult(x-xd, self.Q(t), x-xd) +
+                          matmult(u-ud, self.R(t), u-ud))
+
+        # integrate the above
+        out, err = quad(func, *self.tlims)
+        out += 0.5 * matmult(traj.x(self.tf)-self.ref.x(self.tf),
+                             self.P(self.tf),
+                             traj.x(self.tf)-self.ref.x(self.tf))
+        return out
+
+    def grad(self, traj=None, dir=None):
+        # TODO override default trajectory
+        # right now it does not do this because it doesn't need to
+        if traj is None:
+            traj = self.traj
+        if dir is None:
+            dir = self.direction
+
+        def func(t):
+            return np.dot(self.a(t).T, dir.z(t)) + \
+                np.dot(self.b(t).T, dir.v(t))
+
+        out, err = quad(func, *self.tlims)
+        out += np.dot(self.r(self.tf), dir.z(self.tf))
+
+        return out
+
     def __init__(self, traj, ref, **kwargs):
         LQR.__init__(self, traj.A, traj.B, **kwargs)
 

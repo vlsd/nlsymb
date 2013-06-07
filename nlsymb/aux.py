@@ -8,6 +8,7 @@ import scipy
 from compiler.ast import flatten
 from scipy.interpolate import interp1d
 import time
+from copy import deepcopy
 
 # tensor lambdify
 # returns a callable that returns a tensor
@@ -261,12 +262,13 @@ class trajectory:
                 ifunc = interxpolate(self._t, getattr(self, k), axis=0)
                 setattr(self, k[1:], ifunc)
 
-    def __iadd__(self, direction):
-        for (t, x, u) in zip(self._t, self._x, self._u):
+    def __add__(self, direction):
+        out = deepcopy(self)
+        for (t, x, u) in zip(out._t, out._x, out._u):
             x += direction.z(t)
             u += direction.v(t)
-        self.interpolate()
-        return self
+        out.interpolate()
+        return out
 
 
 class Timer():
@@ -351,6 +353,33 @@ class system():
             traj.addpoint(tt, **dict)
 
         return traj
+
+
+class LineSearch():
+    def __init__(self, func, grad, alpha=1e-1, beta=1e-8):
+        # func takes a point
+        # grad takes a point and a direction
+        self.func = func
+        self.grad = grad
+        self.alpha = alpha
+        self.beta = beta
+
+    def set_x(self, x):
+        self.x = x
+
+    def set_p(self, p):
+        self.p = p
+
+    def search(self):
+        x = self.x
+        p = self.p
+        grad = self.grad(x, p)
+        func = self.func(x)
+        gamma = self.alpha
+        while self.func(x + gamma * p) > func + self.beta * gamma * grad:
+            gamma = gamma/2
+            print "decreasing gamma to ", gamma
+        self.gamma = gamma
 
 
 if __name__ == "__main__":

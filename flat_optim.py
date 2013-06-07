@@ -311,11 +311,21 @@ if __name__ == "__main__":
         with Timer():
             print "calculating descent direction"
             descdir = DescentDir(nutraj, ref, tlims=tlims, Rscale=100)
+            print "cost of trajectory before descent: ", descdir.cost()
+
+        with Timer():
+            print "running Armijo"
+            ls = LineSearch(descdir.cost, descdir.grad)
+            ls.set_x(nutraj)
+            ls.set_p(descdir)
+            ls.search()
 
         with Timer():
             print "applying descent direction"
             # this is where the line search goes
-            nutraj += -1 * descdir
+            nutraj += ls.gamma * descdir
+            print "cost of trajectory after descent: ", \
+                descdir.cost(traj=nutraj)
 
         with Timer():
             # projecting
