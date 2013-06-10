@@ -2,42 +2,33 @@
 nlsymb
 ======
 
-nlsymb provides such and such and so and so. You might find
-it most useful for tasks involving <x> and also <y>. Typical usage
-often looks like this::
+nlsymb is a small collection of classes and functions that use and 
+extend the tools of `numpy` and `sympy` for use with nonlinear 
+dynamic systems that require somewhat intricate tensor algebra 
+between symbolic object. An example use is::
 
     #!/usr/bin/env python
 
     from nlsymb import aux
     from nlsymb import object_einsum
+    from nlsymb import lqr
 
-    if utils.has_towel():
-        print "Your towel is located:", location.where_is_my_towel()
+    with nlsymb.Timer():
+        ref = aux.trajectory('x', 'u')
+        ref.addpoint(0, x=xinit, u=[1, 0])
+        ref.addpoint(2, x=[-6, -7, 0, 0], u=[0, 1])
+        ref.interpolate()
 
-(Note the double-colon and 4-space indent formatting above.)
-
-Paragraphs are separated by blank lines. *Italics*, **bold**,
-and `monospace` look like this.
+    print "reference x at time %f is %f " % (1.34, ref.x(1.34)) 
 
 
-A Section
-=========
+Installation
+============
 
-Lists look like this:
+Not implemented yet. For now just clone the repo and manually copy
+things where they need to be.
 
-* First
 
-* Second. Can be multiple lines
-  but must be indented properly.
-
-A Sub-Section
--------------
-
-Numbered lists look like you'd expect:
-
-1. hi there
-
-2. must be going
-
-Urls are http://like.this and links can be
-written ike this <http://www.example.com/foo/bar>.
+TODO
+====
+More than I can think of. Too too much. 
