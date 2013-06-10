@@ -68,8 +68,8 @@ if __name__ == "__main__":
         with Timer():
             print("calculating descent direction")
             descdir = DescentDir(nutraj, ref, tlims=tlims, Rscale=100)
-            print("cost of trajectory before descent: %f" %\
-                  descdir.cost()
+            print("cost of trajectory before descent: %f" %
+                  descdir.cost())
 
         with Timer():
             print("running Armijo")
@@ -82,7 +82,7 @@ if __name__ == "__main__":
             print("applying descent direction")
             # this is where the line search goes
             nutraj += ls.gamma * descdir
-            print("cost of trajectory after descent: %f", %
+            print("cost of trajectory after descent: %f" %
                 descdir.cost(traj=nutraj))
 
         with Timer():
