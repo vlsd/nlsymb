@@ -1,14 +1,10 @@
 import numpy as np
-import sympy
+#import sympy
 #import sympy.core
 #import sympy.core.symbol
-from sympy.utilities.lambdify import lambdify
-#from sympy.utilities.decorator import xthreaded
-#import scipy
-#from compiler.ast import flatten
-#from scipy.interpolate import interp1d
-#import time
-#from copy import deepcopy
+from sympy.utilities.lambdify import lambdify as slambdify
+from compiler.ast import flatten
+
 
 # tensor lambdify
 # returns a callable that returns a tensor
@@ -20,7 +16,7 @@ def lambdify(vars, expr):
     it.reset()
 
     for (x, func) in it:
-        func[...] = lambdify(vars, x)
+        func[...] = slambdify(vars, x)
 
     tensor_of_lambdas = it.operands[-1]
 
@@ -100,7 +96,7 @@ class SymExpr():
         self.dims = self.expr.shape
 
     def callable(self, *args):
-        self.func = tLambdify(tuple(flatten(args)), self.expr)
+        self.func = lambdify(tuple(flatten(args)), self.expr)
         # thinking of adding cse compressed version of
         # expression here
 
@@ -108,7 +104,7 @@ class SymExpr():
         return tensorSubs(self.expr, rule)
 
     def diff(self, params):
-        return tdiff(self.expr, params)
+        return diff(self.expr, params)
 
 
 def einsum(string, *arrays):

@@ -1,10 +1,16 @@
+import numpy as np
+from functools import reduce
+import time
+import scipy
+from scipy.integrate import ode
+import scipy.interpolate
+
 # from matutils import matmult
 def matmult(*x):
     """
     Shortcut for standard matrix multiplication.
     matmult(A,B,C) returns A*B*C.
     """
-    from functools import reduce
     return reduce(np.dot, x)
 
 
@@ -40,8 +46,7 @@ class Timer():
         self.start = time.time()
 
     def __exit__(self, *args):
-        print("Call took approx. %fs to run" %
-              time.time() - self.start)
+        print "Call took approx. %f s to run" % (time.time() - self.start)
 
 
 def sysIntegrate(func, init,
@@ -52,7 +57,6 @@ def sysIntegrate(func, init,
     # a controller
     # phi(x) returns the distance to the switching plane if any
     # init is the initial value of x at tlimits[0]
-    from scipy.integrate import ode
 
     ti, tf = tlimits
     t, x = ([ti], [init])

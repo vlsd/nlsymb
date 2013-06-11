@@ -5,12 +5,11 @@
 import numpy as np
 import sympy as sym
 from sympy import Symbol as S
-from copy import deepcopy
 
 import nlsymb
 nlsymb = reload(nlsymb)
 
-from nlsymb import Timer
+from nlsymb import Timer, LineSearch
 from nlsymb.sys import *
 from nlsymb.lqr import *
 

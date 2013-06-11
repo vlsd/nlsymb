@@ -1,17 +1,11 @@
 import numpy as np
-import sympy
-import sympy.core
-import sympy.core.symbol
+import sympy as sym
+from sympy import Symbol as S
 from sympy.utilities.lambdify import lambdify
-from sympy.utilities.decorator import xthreaded
-import scipy
-from compiler.ast import flatten
-from scipy.interpolate import interp1d
-import time
 from copy import deepcopy
 
 import tensor as tn
-
+from . import matmult, interxpolate, sysIntegrate
 
 class Trajectory():
     # a class to represent a trajectory, takes lists of points and
@@ -137,7 +131,7 @@ class System():
             components.append('A')
             components.append('B')
 
-        traj = trajectory(*components)
+        traj = Trajectory(*components)
         for (tt, xx) in zip(t, x):
             dict = {'x': xx}
             if 'u' in components:
@@ -176,24 +170,24 @@ class SymSys():
     ztox = [(z[i], x[i]) for i in range(dim)]
 
     # dOhm/dz
-    _dOhm = tdiff(_Ohm, z)
-    #_dohm = tLambdify(z, _dOhm)
+    _dOhm = tn.diff(_Ohm, z)
+    #_dohm = tn.lambdify(z, _dOhm)
 
     # dPsi/dq
-    _dPsi = tdiff(_Psi, q)
-    #_dpsi = tLambdify(q, _dPsi)
+    _dPsi = tn.diff(_Psi, q)
+    #_dpsi = tn.lambdify(q, _dPsi)
 
     def Ohm(self, z):
-        return tensorEval(self._Ohm, self.z, z)
+        return tn.eval(self._Ohm, self.z, z)
 
     def dOhm(self, z):
-        return tensorEval(self._dOhm, self.z, z)
+        return tn.eval(self._dOhm, self.z, z)
 
     def Psi(self, q):
-        return tensorEval(self._Psi, self.q, q)
+        return tn.eval(self._Psi, self.q, q)
 
     def dPsi(self, q):
-        return tensorEval(self._dPsi, self.q, q)
+        return tn.eval(self._dPsi, self.q, q)
 
     # this function takes and returns numerical values
     def xtopq(self, x):
@@ -244,31 +238,31 @@ class SymSys():
         zdot = self.x[2:4]
         out = np.concatenate((zdot,
                               np.dot(self.Mzi,
-                                     - object_einsum(
+                                     - tn.einsum(
                                          'i,ijk,k', zdot, self.dMz, zdot)
-                                     + object_einsum(
+                                     + tn.einsum(
                                          'i,ikl,k', zdot, self.dMz, zdot)/2
                                      + self.dVz
                                      - np.dot(self._dOhm.T, self.u)
                                      )
                               ))
 
-        return tSymExpr(tensorSubs(out, self.ztox))
+        return tn.SymExpr(tn.subs(out, self.ztox))
 
     def _makefm(self):
         zdot = self.x[2:4]
         zz = self._P
         zzdot = np.dot(self._dP, zdot)
 
-        out = -object_einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
-            + object_einsum('i,ikj,k', zzdot, self.dMzz, zzdot)/2
+        out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
+            + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot)/2
         out = np.dot(self.Mzzi, out + self.dVzz - np.dot(self._dOhm.T, self.u))
-        out = out - object_einsum('ijk,j,k',
-                                  tdiff(self._dP, self.z), zdot, zdot)
+        out = out - tn.einsum('ijk,j,k',
+                                  tn.diff(self._dP, self.z), zdot, zdot)
         # note: dP is the same as dPinverse. woo!
         out = np.concatenate((zdot, np.dot(self._dPi, out)))
 
-        return tSymExpr(tensorSubs(out, self.ztox))
+        return tn.SymExpr(tn.subs(out, self.ztox))
 
     def _makeP(self, k):
         # builds the symbolic expression for the projection
@@ -334,11 +328,11 @@ class SymSys():
             expr = self._P
             vals = zval
             params = self.z
-            return tensorEval(expr, params, vals)
+            return tn.eval(expr, params, vals)
 
     def dP(self, zval):
         # for debug purposes
-        return tensorEval(self._dP, self.z, zval)
+        return tn.eval(self._dP, self.z, zval)
 
     def phi(self, xval):
         return xval[1]
@@ -355,24 +349,24 @@ class SymSys():
         self.Mqi = self._buildMqi()
         self.Mzi = self._buildMzi()
 
-        self.dMq = tdiff(self.Mq, self.q)
-        self.dMz = tdiff(self.Mz, self.z)
+        self.dMq = tn.diff(self.Mq, self.q)
+        self.dMz = tn.diff(self.Mz, self.z)
 
         self.delta = self.Mzi[:, self.si] / self.Mzi[self.si, self.si]
-        #self.ddelta = tdiff(self.delta, self.z)
+        #self.ddelta = tn.diff(self.delta, self.z)
 
         self.Vz = self._build_Vz()
-        self.dVz = tdiff(self.Vz, self.z)
+        self.dVz = tn.diff(self.Vz, self.z)
 
         self._P = self._makeP(self.k)
-        self._dP = tdiff(self._P, self.z)
+        self._dP = tn.diff(self._P, self.z)
         self._dPi = np.array(sym.Matrix(self._dP).inv())
 
         self.ztozz = {self.z[i]: self._P[i] for i in range(self.dim)}
-        self.Mzzi = tensorSubs(self.Mzi, self.ztozz)
-        self.dMzz = tensorSubs(self.dMz, self.ztozz)
-        self.dVzz = tensorSubs(self.dVz, self.ztozz)
-        self.dPzz = tensorSubs(self._dP, self.ztozz)
+        self.Mzzi = tn.subs(self.Mzi, self.ztozz)
+        self.dMzz = tn.subs(self.dMz, self.ztozz)
+        self.dVzz = tn.subs(self.dVz, self.ztozz)
+        self.dPzz = tn.subs(self._dP, self.ztozz)
 
         params = [self.t, self.x, self.u]
 
@@ -381,18 +375,18 @@ class SymSys():
         self._fmins = self._makefm()
         self._fmins.callable(*params)
 
-        self._dfxp = tSymExpr(self._fplus.diff(self.x))
+        self._dfxp = tn.SymExpr(self._fplus.diff(self.x))
         self._dfxp.callable(*params)
-        self._dfxm = tSymExpr(self._fmins.diff(self.x))
+        self._dfxm = tn.SymExpr(self._fmins.diff(self.x))
         self._dfxm.callable(*params)
-        self._dfup = tSymExpr(self._fplus.diff(self.u))
+        self._dfup = tn.SymExpr(self._fplus.diff(self.u))
         self._dfup.callable(*params)
-        self._dfum = tSymExpr(self._fmins.diff(self.u))
+        self._dfum = tn.SymExpr(self._fmins.diff(self.u))
         self._dfum.callable(*params)
 
         self.controller = lambda t, x: [0, 0]
-        self._ohm = tLambdify(self.z, self._Ohm)
-        self._psi = tLambdify(self.q, self._Psi)
+        self._ohm = tn.lambdify(self.z, self._Ohm)
+        self._psi = tn.lambdify(self.q, self._Psi)
 
 
 if __name__ == "__main__":
