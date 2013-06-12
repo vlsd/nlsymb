@@ -42,15 +42,19 @@ class LineSearch():
 
 
 class Timer():
-    def __enter__(self):
+    def __init__(self, fmts="Section took %fs to run"):
+        self.fmts = fmts
+    
+    def __enter__(self): 
         self.start = time.time()
 
     def __exit__(self, *args):
-        print "Call took approx. %f s to run" % (time.time() - self.start)
+        delta = time.time() - self.start
+        print( self.fmts % delta )
 
 
 def sysIntegrate(func, init,
-                 control=None, phi=None,
+                 control=None, phi=None, debug=False,
                  tlimits=(0, 10), jac=None, method='bdf'):
     # func(t, x, u) returns xdot
     # control is parameter that gets passed to func, representing
@@ -91,7 +95,8 @@ def sysIntegrate(func, init,
 
                 # reset integration
                 solver.set_initial_value(xcross, tcross)
-                print("found intersection at t=%f" % tcross)
+                if debug:
+                    print("found intersection at t=%f" % tcross)
 
     # make the last point be exactly at tf
     #xf = x[-2] + (tf - t[-2])*(x[-1] - x[-2])/(t[-1] - t[-2])

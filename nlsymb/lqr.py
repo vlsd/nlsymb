@@ -2,7 +2,7 @@ import numpy as np
 from aux import matmult, trajectory, sysIntegrate
 from scipy.linalg import schur
 from numpy.linalg import inv
-from scipy.integrate import ode, quad
+from scipy.integrate import ode, simps
 
 
 class LQR:
@@ -139,16 +139,19 @@ class DescentDir(LQR):
         if traj is None:
             traj = self.traj
 
-        def func(t):
-            x = traj.x(t)
+        
+        tlist = traj.x.x
+        elist = []
+        for (t, x, u) in zip(tlist, traj.x.y, traj.u.y):
             xd = self.ref.x(t)
-            u = traj.u(t)
             ud = self.ref.u(t)
-            return 0.5 * (matmult(x-xd, self.Q(t), x-xd) +
-                          matmult(u-ud, self.R(t), u-ud))
+            Q = self.Q(t)
+            R = self.R(t)
+            expr = matmult(x-xd, Q, x-xd)/2.0 + matmult(u-ud, R, u-ud)/2.0
+            elist.append(expr)
 
         # integrate the above
-        out, err = quad(func, *self.tlims)
+        out = simps(elist, tlist)
         out += 0.5 * matmult(traj.x(self.tf)-self.ref.x(self.tf),
                              self.P(self.tf),
                              traj.x(self.tf)-self.ref.x(self.tf))
@@ -162,11 +165,14 @@ class DescentDir(LQR):
         if dir is None:
             dir = self.direction
 
-        def func(t):
-            return np.dot(self.a(t).T, dir.z(t)) + \
-                np.dot(self.b(t).T, dir.v(t))
+        tlist = dir.z.x
+        elist = []
+        for (t, z, v) in zip(tlist, dir.z.y, dir.v.y):
+            a = self.a(t)
+            b = self.b(t)
+            elist.append(matmult(a.T, z) + matmult(b.T, v))
 
-        out, err = quad(func, *self.tlims)
+        out = simps(elist, tlist)
         out += np.dot(self.r(self.tf), dir.z(self.tf))
 
         return out
