@@ -53,26 +53,26 @@ if __name__ == "__main__":
             #trajectories.append(tj)
 
         #with Timer("first projection"):
-            tj = nlsys.project(nlsys, ref, Rscale=10, lin=True)
+            tj = nlsys.project(ref, lin=True)
             trajectories.append(tj)
 
-        for index in range(10):
+        for index in range(1):
             with Timer("descent direction and line search "):
                 descdir = DescentDir(tj, ref, tlims=tlims, Rscale=100)
                 print("cost of trajectory before descent: %f" %
-                      descdir.cost())
+                      nlsys.cost(tj))
 
-                ls = LineSearch(nlsys, descdir.cost, descdir.grad)
+                ls = LineSearch(nlsys.cost, nlsys.grad)
                 ls.set_x(tj)
                 ls.set_p(descdir)
                 ls.search()
                 
                 tj += ls.gamma * descdir
                 print("cost of trajectory after descent: %f" %
-                    descdir.cost(traj=tj))
+                    nlsys.cost(tj))
 
             with Timer("second projection"):
-                tj = nlsys.project(tj, tlims=tlims, Rscale=10)
+                tj = nlsys.project(tj, tlims=tlims, lin=True)
                 trajectories.append(tj)
 
     qref = [s.xtopq(ref.x(t)) for t in tj._t]

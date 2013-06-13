@@ -2,6 +2,7 @@ import numpy as np
 import sympy as sym
 from sympy import Symbol as S
 from copy import deepcopy
+from scipy.integrate import simps
 
 import tensor as tn
 from . import matmult, interxpolate, sysIntegrate
@@ -180,8 +181,6 @@ class System():
             control = Controller(reference=traj)
 
         self.set_u(control)
-        print control(1, [1,2,3,4])
-        exit()
         nutraj = self.integrate(linearize=lin)
         #self.reset_u()
 
@@ -211,18 +210,17 @@ class System():
         # this shouldn't be needed
         #tj = self.project(traj)
         
-        reg = self.regulator
-        T = tlims[1]
+        T = self.tlims[1]
 
         tlist = dir._t
         elist = []
         for (t, z, v) in zip(tlist, dir._z, dir._v):
-            a = reg.a(t)
-            b = reg.b(t)
+            a = dir.a(t)
+            b = dir.b(t)
             elist.append(matmult(a.T, z) + matmult(b.T, v))
 
         out = simps(elist, tlist)
-        out += matmult(reg.r(T), dir.z(T))
+        out += matmult(dir.r(T), dir.z(T))
 
         return out
     

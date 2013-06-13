@@ -2,7 +2,7 @@ import numpy as np
 from aux import matmult, trajectory, sysIntegrate
 from scipy.linalg import schur
 from numpy.linalg import inv
-from scipy.integrate import ode, simps
+from scipy.integrate import ode
 
 
 class LQR:
