@@ -15,7 +15,7 @@ def matmult(*x):
 
 
 class LineSearch():
-    def __init__(self, func, grad, alpha=1e-1, beta=1e-8):
+    def __init__(self, func, grad, alpha=1e-2, beta=1e-8):
         # func takes a point
         # grad takes a point and a direction
         self.func = func
@@ -42,8 +42,8 @@ class LineSearch():
 
 
 class Timer():
-    def __init__(self, fmts="Section took %fs to run"):
-        self.fmts = fmts
+    def __init__(self, fmts=""):
+        self.fmts = fmts + " took %fs to run"
     
     def __enter__(self): 
         self.start = time.time()

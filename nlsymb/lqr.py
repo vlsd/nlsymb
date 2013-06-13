@@ -125,62 +125,20 @@ class Controller():
         self.ref = kwargs['reference']
         if 'K' in kwargs.keys():
             self.K = kwargs['K']
+            self.zero = False
         else:
-            m = len(self.ref.u(0))
-            n = len(self.ref.x(0))
-            self.K = lambda t: np.zeros((m, n))
+            self.zero = True
 
     def __call__(self, t, x):
-        return self.ref.u(t) + np.dot(self.K(t), self.ref.x(t) - x)
+        if self.zero:
+            return self.ref.u(t)
+        else:
+            return self.ref.u(t) + np.dot(self.K(t), self.ref.x(t) - x)
 
 
 class DescentDir(LQR):
-    def cost(self, traj=None):
-        if traj is None:
-            traj = self.traj
-
-        
-        tlist = traj.x.x
-        elist = []
-        for (t, x, u) in zip(tlist, traj.x.y, traj.u.y):
-            xd = self.ref.x(t)
-            ud = self.ref.u(t)
-            Q = self.Q(t)
-            R = self.R(t)
-            expr = matmult(x-xd, Q, x-xd)/2.0 + matmult(u-ud, R, u-ud)/2.0
-            elist.append(expr)
-
-        # integrate the above
-        out = simps(elist, tlist)
-        out += 0.5 * matmult(traj.x(self.tf)-self.ref.x(self.tf),
-                             self.P(self.tf),
-                             traj.x(self.tf)-self.ref.x(self.tf))
-        return out
-
-    def grad(self, traj=None, dir=None):
-        # TODO override default trajectory
-        # right now it does not do this because it doesn't need to
-        if traj is None:
-            traj = self.traj
-        if dir is None:
-            dir = self.direction
-
-        tlist = dir.z.x
-        elist = []
-        for (t, z, v) in zip(tlist, dir.z.y, dir.v.y):
-            a = self.a(t)
-            b = self.b(t)
-            elist.append(matmult(a.T, z) + matmult(b.T, v))
-
-        out = simps(elist, tlist)
-        out += np.dot(self.r(self.tf), dir.z(self.tf))
-
-        return out
-
     def __init__(self, traj, ref, **kwargs):
         LQR.__init__(self, traj.A, traj.B, **kwargs)
-
-        print "done with lqr in descentdir"
 
         self.traj = traj
         self.ref = ref
@@ -197,9 +155,7 @@ class DescentDir(LQR):
             #self.z0 = -np.dot(inv(self.P(0)), self.r(0))
             self.z0 = np.zeros(self.n)
 
-        print "solving for z"
         self.direction = self.solve(self.z0)
-        print "solved for z"
 
         self.z = self.direction.z
         self.v = self.direction.v

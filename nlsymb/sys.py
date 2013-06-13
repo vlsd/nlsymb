@@ -1,11 +1,11 @@
 import numpy as np
 import sympy as sym
 from sympy import Symbol as S
-from sympy.utilities.lambdify import lambdify
 from copy import deepcopy
 
 import tensor as tn
 from . import matmult, interxpolate, sysIntegrate
+from lqr import LQR, Controller
 
 class Trajectory():
     # a class to represent a trajectory, takes lists of points and
@@ -18,17 +18,17 @@ class Trajectory():
         self.tmax = None
         self.tmin = None
 
-    def __call__(self, t):
-        # evaluates at t if there is only one series stored
-        # TODO make sure this works; not really necessary now
-        num = 0
-        for k in self.__dict__.keys():
-            if k[0] is not '_':
-                num += 1
-                key = k
-        if num is 1:
-            func = getattr(self, key)
-            return func(t)
+    #def __call__(self, t):
+    #    # evaluates at t if there is only one series stored
+    #    # TODO make sure this works; not really necessary now
+    #    num = 0
+    #    for k in self.__dict__.keys():
+    #        if k[0] is not '_':
+    #            num += 1
+    #            key = k
+    #    if num is 1:
+    #        func = getattr(self, key)
+    #        return func(t)
 
     def addpoint(self, t, **kwargs):
         # keyword arguments in the form x=val
@@ -99,7 +99,18 @@ class System():
         self.phi = phi
 
     def set_u(self, controller):
-        self.u = controller
+        if 'ufun' in self.__dict__.keys():
+            self._uold = self.ufun
+        self.ufun = controller
+
+    def reset_u(self):
+        if '_uold' in self.__dict__.keys():
+            self.u = self._uold
+        else:
+            print("Nothing to reset to. Not doing anything.")
+
+    def set_ref(self, ref):
+        self.ref=ref
 
     # TODO make sure this works in all combinations of linearization
     # or not, and controlled or not; first, though, get it working with
@@ -109,11 +120,12 @@ class System():
         xinit = kwargs['xinit'] if 'xinit' in keys else self.xinit
         use_jac = kwargs['use_jac'] if 'use_jac' in keys else False
         lin = kwargs['linearize'] if 'linearize' in keys else True
+        interp = kwargs['interpolate'] if 'interpolate' in keys else True
 
         if self.u is not None:
-            func = lambda t, x: self.f(t, x, self.u(t, x))
-            dfdx = lambda t, x: self.dfdx(t, x, self.u(t, x))
-            dfdu = lambda t, x: self.dfdu(t, x, self.u(t, x))
+            func = lambda t, x: self.f(t, x, self.ufun(t, x))
+            dfdx = lambda t, x: self.dfdx(t, x, self.ufun(t, x))
+            dfdu = lambda t, x: self.dfdu(t, x, self.ufun(t, x))
         else:
             func = self.f
             dfdx = self.dfdx
@@ -125,7 +137,7 @@ class System():
                               phi=self.phi, jac=jac)
 
         components = ['x']
-        if self.u:
+        if 'ufun' in self.__dict__.keys():
             components.append('u')
         if lin:
             components.append('A')
@@ -135,7 +147,7 @@ class System():
         for (tt, xx) in zip(t, x):
             dict = {'x': xx}
             if 'u' in components:
-                dict['u'] = self.u(tt, xx)
+                dict['u'] = self.ufun(tt, xx)
             if 'A' in components:
                 dict['A'] = dfdx(tt, xx)
             if 'B' in components:
@@ -143,8 +155,77 @@ class System():
 
             traj.addpoint(tt, **dict)
 
+        # interpolate, unless requested; 
+        # saves a few manual calls
+        if interp:
+            traj.interpolate()
+        else:
+            pass
+
+        if lin:
+            self.lintraj = traj
+            self.regulator = LQR(traj.A, traj.B, tlims=self.tlims, Rscale=10)
+
         return traj
 
+    def project(self, traj, tlims=None, Rscale=10, lin=False):
+        if tlims is None:
+            tlims = self.tlims
+
+        if 'regulator' in self.__dict__.keys():
+            ltj = self.lintraj
+            reg = self.regulator
+            control = Controller(reference=traj, K=reg.K)
+        else:
+            control = Controller(reference=traj)
+
+        self.set_u(control)
+        print control(1, [1,2,3,4])
+        exit()
+        nutraj = self.integrate(linearize=lin)
+        #self.reset_u()
+
+        return nutraj
+
+    def cost(self, traj):
+        tj = self.project(traj)
+        T = self.tlims[1]
+
+        tlist = tj._t
+        elist = []
+        for (t, x, u) in zip(tlist, tj._x, tj._u):
+            xd = self.ref.x(t)
+            ud = self.ref.u(t)
+            Q = self.regulator.Q(t)
+            R = self.regulator.R(t)
+            expr = matmult(x-xd, Q, x-xd)/2.0 + matmult(u-ud, R, u-ud)/2.0
+            elist.append(expr)
+
+        # integrate the above
+        out = simps(elist, tlist)
+        out += 0.5 * matmult(tj.x(T)-self.ref.x(T), self.regulator.P(T),
+                             tj.x(T)-self.ref.x(T))
+        return out
+
+    def grad(self, traj, dir):
+        # this shouldn't be needed
+        #tj = self.project(traj)
+        
+        reg = self.regulator
+        T = tlims[1]
+
+        tlist = dir._t
+        elist = []
+        for (t, z, v) in zip(tlist, dir._z, dir._v):
+            a = reg.a(t)
+            b = reg.b(t)
+            elist.append(matmult(a.T, z) + matmult(b.T, v))
+
+        out = simps(elist, tlist)
+        out += matmult(reg.r(T), dir.z(T))
+
+        return out
+    
 
 class SymSys():
     # a representation of a hybrid/impulsive system

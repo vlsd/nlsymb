@@ -7,7 +7,7 @@ import sympy as sym
 from sympy import Symbol as S
 
 import nlsymb
-nlsymb = reload(nlsymb)
+#nlsymb = reload(nlsymb)
 
 from nlsymb import Timer, LineSearch
 from nlsymb.sys import *
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     """
 
     with Timer():
-        with Timer():
+        with Timer("creating symbolic system"):
             s = SymSys(k=10)
             qinit = np.array([0, 10])
             qdoti = np.array([1, -2])
@@ -42,65 +42,47 @@ if __name__ == "__main__":
         nlsys = System(s.f, tlims=tlims, xinit=xinit,
                        dfdx=s.dfdx, dfdu=s.dfdu)
         nlsys.set_phi(s.phi)
+        nlsys.set_ref(ref)
 
-        zerocontrol = Controller(reference=ref)
-        nlsys.set_u(zerocontrol)
+        #zerocontrol = Controller(reference=ref)
+        #nlsys.set_u(zerocontrol)
 
         trajectories = []
-        with Timer():
-            lintraj = nlsys.integrate()
-            lintraj.interpolate()
-            trajectories.append(deepcopy(lintraj))
+        with Timer("initial projection"):
+            #tj = nlsys.integrate()
+            #trajectories.append(tj)
 
-        with Timer():
-            lqrtest = LQR(lintraj.A, lintraj.B, tlims=tlims, Rscale=10)
-            # use reference trajectory as initial guess
-            # does not have to be the case
-            nucontrol = Controller(reference=ref, K=lqrtest.K)
+        #with Timer("first projection"):
+            tj = nlsys.project(nlsys, ref, Rscale=10, lin=True)
+            trajectories.append(tj)
 
-        with Timer():
-            nlsys.set_u(nucontrol)
-            nutraj = nlsys.integrate()
-            nutraj.interpolate()
-            trajectories.append(deepcopy(nutraj))
+        for index in range(10):
+            with Timer("descent direction and line search "):
+                descdir = DescentDir(tj, ref, tlims=tlims, Rscale=100)
+                print("cost of trajectory before descent: %f" %
+                      descdir.cost())
 
-        with Timer():
-            print("calculating descent direction")
-            descdir = DescentDir(nutraj, ref, tlims=tlims, Rscale=100)
-            print("cost of trajectory before descent: %f" %
-                  descdir.cost())
+                ls = LineSearch(nlsys, descdir.cost, descdir.grad)
+                ls.set_x(tj)
+                ls.set_p(descdir)
+                ls.search()
+                
+                tj += ls.gamma * descdir
+                print("cost of trajectory after descent: %f" %
+                    descdir.cost(traj=tj))
 
-        with Timer():
-            print("running Armijo")
-            ls = LineSearch(descdir.cost, descdir.grad)
-            ls.set_x(nutraj)
-            ls.set_p(descdir)
-            ls.search()
+            with Timer("second projection"):
+                tj = nlsys.project(tj, tlims=tlims, Rscale=10)
+                trajectories.append(tj)
 
-        with Timer():
-            print("applying descent direction")
-            # this is where the line search goes
-            nutraj += ls.gamma * descdir
-            print("cost of trajectory after descent: %f" %
-                descdir.cost(traj=nutraj))
+    qref = [s.xtopq(ref.x(t)) for t in tj._t]
+    q0 = map(s.xtopq, trajectories[0]._x)
+    qnu = map(s.xtopq, tj._x)
 
-        with Timer():
-            # projecting
-            nulqr = LQR(nutraj.A, nutraj.B, tlims=tlims, Rscale=10)
-            nucontrol = Controller(reference=nutraj, K=nulqr.K)
-            nlsys.set_u(nucontrol)
-            nutraj = nlsys.integrate()
-            nutraj.interpolate()
-            trajectories.append(deepcopy(nutraj))
-
-    qref = [s.xtopq(ref.x(t)) for t in lintraj._t]
-    q = map(s.xtopq, lintraj.x.y)
-    qnu = map(s.xtopq, nutraj.x.y)
-
-    plt.plot([qq[0] for qq in q],
-             [np.sin(qq[0]) for qq in q])
+    plt.plot([qq[0] for qq in q0],
+             [np.sin(qq[0]) for qq in q0])
     plt.plot([qq[0] for qq in qref], [qq[1] for qq in qref])
-    plt.plot([qq[0] for qq in q], [qq[1] for qq in q])
+    plt.plot([qq[0] for qq in q0], [qq[1] for qq in q0])
     plt.plot([qq[0] for qq in qnu], [qq[1] for qq in qnu])
     plt.axis('equal')
     plt.show()
