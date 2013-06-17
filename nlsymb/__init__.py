@@ -4,6 +4,7 @@ import time
 import scipy
 from scipy.integrate import ode
 import scipy.interpolate
+from copy import deepcopy
 
 # from matutils import matmult
 def matmult(*x):
@@ -12,6 +13,69 @@ def matmult(*x):
     matmult(A,B,C) returns A*B*C.
     """
     return reduce(np.dot, x)
+
+
+class Trajectory():
+    # a class to represent a trajectory, takes lists of points and
+    # returns interpolation objects (callables)
+    def __init__(self, *args):
+        # takes as arguments the names of the fields it stores
+        for name in args:
+            setattr(self, '_' + name, [])
+        self._t = []
+        self.tmax = None
+        self.tmin = None
+
+    #def __call__(self, t):
+    #    # evaluates at t if there is only one series stored
+    #    # TODO make sure this works; not really necessary now
+    #    num = 0
+    #    for k in self.__dict__.keys():
+    #        if k[0] is not '_':
+    #            num += 1
+    #            key = k
+    #    if num is 1:
+    #        func = getattr(self, key)
+    #        return func(t)
+
+    def addpoint(self, t, **kwargs):
+        # keyword arguments in the form x=val
+        if self._t is []:
+            self.tmax = t
+            self.tmin = t
+        else:
+            if t > self.tmax:
+                self.tmax = t
+            if t < self.tmin:
+                self.tmin = t
+        self._t.append(t)
+
+        for name, val in kwargs.iteritems():
+            current = getattr(self, '_' + name)
+            setattr(self, '_' + name, current + [val])
+
+    def reset(self):
+        # used for resetting all the args to []
+        # does not delete interpolation objects already created
+        for k in self.__dict__.keys():
+            setattr(self, '_' + name, [])
+            if k[0] is '_':
+                setattr(self, k, [])
+        self._t = []
+
+    def interpolate(self):
+        for k in self.__dict__.keys():
+            if k[0] is '_' and k[1:] is not 't':
+                ifunc = interxpolate(self._t, getattr(self, k), axis=0)
+                setattr(self, k[1:], ifunc)
+
+    def __add__(self, direction):
+        out = deepcopy(self)
+        for (t, x, u) in zip(out._t, out._x, out._u):
+            x += direction.z(t)
+            u += direction.v(t)
+        out.interpolate()
+        return out
 
 
 class LineSearch():

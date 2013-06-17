@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
         for index in range(1):
             with Timer("descent direction and line search "):
-                descdir = DescentDir(tj, ref, tlims=tlims, Rscale=100)
+                descdir = DescentDir(tj, ref, tlims=tlims, Rscale=1)
                 print("cost of trajectory before descent: %f" %
                       nlsys.cost(tj))
 
@@ -75,9 +75,9 @@ if __name__ == "__main__":
                 tj = nlsys.project(tj, tlims=tlims, lin=True)
                 trajectories.append(tj)
 
-    qref = [s.xtopq(ref.x(t)) for t in tj._t]
+    qref = [s.xtopq(ref.x(t)) for t in tjt._t]
     q0 = map(s.xtopq, trajectories[0]._x)
-    qnu = map(s.xtopq, tj._x)
+    qnu = map(s.xtopq, tjt._x)
 
     plt.plot([qq[0] for qq in q0],
              [np.sin(qq[0]) for qq in q0])

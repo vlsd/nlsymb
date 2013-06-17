@@ -5,70 +5,8 @@ from copy import deepcopy
 from scipy.integrate import simps
 
 import tensor as tn
-from . import matmult, interxpolate, sysIntegrate
+from . import matmult, interxpolate, sysIntegrate, Trajectory
 from lqr import LQR, Controller
-
-class Trajectory():
-    # a class to represent a trajectory, takes lists of points and
-    # returns interpolation objects (callables)
-    def __init__(self, *args):
-        # takes as arguments the names of the fields it stores
-        for name in args:
-            setattr(self, '_' + name, [])
-        self._t = []
-        self.tmax = None
-        self.tmin = None
-
-    #def __call__(self, t):
-    #    # evaluates at t if there is only one series stored
-    #    # TODO make sure this works; not really necessary now
-    #    num = 0
-    #    for k in self.__dict__.keys():
-    #        if k[0] is not '_':
-    #            num += 1
-    #            key = k
-    #    if num is 1:
-    #        func = getattr(self, key)
-    #        return func(t)
-
-    def addpoint(self, t, **kwargs):
-        # keyword arguments in the form x=val
-        if self._t is []:
-            self.tmax = t
-            self.tmin = t
-        else:
-            if t > self.tmax:
-                self.tmax = t
-            if t < self.tmin:
-                self.tmin = t
-        self._t.append(t)
-
-        for name, val in kwargs.iteritems():
-            current = getattr(self, '_' + name)
-            setattr(self, '_' + name, current + [val])
-
-    def reset(self):
-        # used for resetting all the args to []
-        # does not delete interpolation objects already created
-        for k in self.__dict__.keys():
-            setattr(self, '_' + name, [])
-            if k[0] is '_':
-                setattr(self, k, [])
-        self._t = []
-
-    def interpolate(self):
-        for k in self.__dict__.keys():
-            if k[0] is '_' and k[1:] is not 't':
-                ifunc = interxpolate(self._t, getattr(self, k), axis=0)
-                setattr(self, k[1:], ifunc)
-
-    def __add__(self, direction):
-        out = deepcopy(self)
-        for (t, x, u) in zip(out._t, out._x, out._u):
-            x += direction.z(t)
-            u += direction.v(t)
-        out.interpolate()
-        return out
 
 
 class System():
@@ -165,26 +103,33 @@ class System():
 
         if lin:
             self.lintraj = traj
-            self.regulator = LQR(traj.A, traj.B, tlims=self.tlims, Rscale=10)
+            self.regulator = LQR(traj.A, traj.B, 
+                                 tlims=self.tlims, Rscale=1e-2)
 
         return traj
 
-    def project(self, traj, tlims=None, Rscale=10, lin=False):
+    def project(self, traj, tlims=None, Rscale=1e-5, lin=False):
         if tlims is None:
             tlims = self.tlims
 
         if 'regulator' in self.__dict__.keys():
+            #print("regular projection")
             ltj = self.lintraj
             reg = self.regulator
             control = Controller(reference=traj, K=reg.K)
+
+            self.set_u(control)
+            return self.integrate(linearize=lin)
         else:
+            #print("integrating and linearizing for the first time")
             control = Controller(reference=traj)
+            
+            self.set_u(control)
+            nutraj = self.integrate(linearize=True)
 
-        self.set_u(control)
-        nutraj = self.integrate(linearize=lin)
-        #self.reset_u()
+            return self.project(nutraj, tlims=tlims, 
+                                Rscale=Rscale, lin=lin)
 
-        return nutraj
 
     def cost(self, traj):
         tj = self.project(traj)
@@ -197,11 +142,11 @@ class System():
             ud = self.ref.u(t)
             Q = self.regulator.Q(t)
             R = self.regulator.R(t)
-            expr = matmult(x-xd, Q, x-xd)/2.0 + matmult(u-ud, R, u-ud)/2.0
+            expr = matmult(x-xd, Q, x-xd) + matmult(u-ud, R, u-ud)
             elist.append(expr)
 
         # integrate the above
-        out = simps(elist, tlist)
+        out = 0.5 * simps(elist, tlist)
         out += 0.5 * matmult(tj.x(T)-self.ref.x(T), self.regulator.P(T),
                              tj.x(T)-self.ref.x(T))
         return out

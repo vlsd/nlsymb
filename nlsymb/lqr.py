@@ -1,15 +1,17 @@
 import numpy as np
-from aux import matmult, trajectory, sysIntegrate
 from scipy.linalg import schur
 from numpy.linalg import inv
 from scipy.integrate import ode
+
+from . import matmult, sysIntegrate, Trajectory
 
 
 class LQR:
     # a class representing a LQR problem
     def __init__(self, A, B, P=None, Q=None, R=None, tlims=(0, 10),
                  Rscale=1, Qscale=1):
-        attribs = {'Q': Q, 'R': R, 'Pf': P, 'A': A, 'B': B, 'tlims': tlims}
+        attribs = {'Q': Q, 'R': R, 'Pf': P, 'A': A, 
+                   'B': B, 'tlims': tlims}
         for k, v in attribs.iteritems():
             setattr(self, k, v)
 
@@ -42,11 +44,11 @@ class LQR:
         if P is None:
             self.Pf = np.eye(self.n)
 
-        # this is a trajectory object
+        # this is a Trajectory object
         self.Ptraj = self.cdre()
         self.P = self.Ptraj.P
 
-        self.Ktraj = trajectory('K')
+        self.Ktraj = Trajectory('K')
         for (t, P) in zip(self.Ptraj._t, self.Ptraj.P.y):
             K = matmult(inv(self.R(t)), self.B(t).T, P)
             self.Ktraj.addpoint(t, K=K)
@@ -107,7 +109,7 @@ class LQR:
             P.append(solver.y.reshape((n, n)))
             t.append(-solver.t)
 
-        ptraj = trajectory('P')
+        ptraj = Trajectory('P')
         for tt, pp in zip(t, P):
             # if this is slow, then import itertools and use izip
             ptraj.addpoint(tt, P=pp)
@@ -191,7 +193,7 @@ class DescentDir(LQR):
             r.append(solver.y)
             t.append(-solver.t)
 
-        rtraj = trajectory('r')
+        rtraj = Trajectory('r')
         for tt, rr in zip(t, r):
             rtraj.addpoint(tt, r=rr)
         rtraj.interpolate()
@@ -211,7 +213,7 @@ class DescentDir(LQR):
             return np.dot(self.A(t), z) + np.dot(self.B(t), v(t, z))
 
         (t, z) = sysIntegrate(zdot, z0, tlimits=self.tlims)
-        lintraj = trajectory('z', 'v')
+        lintraj = Trajectory('z', 'v')
         for (tt, zz) in zip(t, z):
             lintraj.addpoint(tt, z=zz, v=v(tt, zz))
         lintraj.interpolate()
@@ -221,7 +223,7 @@ class DescentDir(LQR):
     def __rmul__(self, scalar):
         # should only be called for a descent direction
         # which only has z and v components
-        out = trajectory('z', 'v')
+        out = Trajectory('z', 'v')
         for (t, z, v) in zip(self._t, self._z, self._v):
             out.addpoint(t, z=scalar*z, v=scalar*v)
 
