@@ -29,7 +29,7 @@ class System():
             self.dim = 1
 
         self.f = func
-        self.u = kwargs['controller'] if 'controller' in keys else None
+        self.ufun = kwargs['controller'] if 'controller' in keys else None
         self.dfdx = kwargs['dfdx'] if 'dfdx' in keys else None
         self.dfdu = kwargs['dfdu'] if 'dfdu' in keys else None
         self.phi = kwargs['phi'] if 'phi' in keys else None
@@ -61,7 +61,7 @@ class System():
         lin = kwargs['linearize'] if 'linearize' in keys else True
         interp = kwargs['interpolate'] if 'interpolate' in keys else True
 
-        if self.u is not None:
+        if self.ufun is not None:
             func = lambda t, x: self.f(t, x, self.ufun(t, x))
             dfdx = lambda t, x: self.dfdx(t, x, self.ufun(t, x))
             dfdu = lambda t, x: self.dfdu(t, x, self.ufun(t, x))
@@ -104,11 +104,11 @@ class System():
         if lin:
             self.lintraj = traj
             self.regulator = LQR(traj.A, traj.B, 
-                                 tlims=self.tlims, Rscale=1e-2)
+                                 tlims=self.tlims, Rscale=1)
 
         return traj
 
-    def project(self, traj, tlims=None, Rscale=1e-5, lin=False):
+    def project(self, traj, tlims=None, Rscale=1, lin=False):
         if tlims is None:
             tlims = self.tlims
 
