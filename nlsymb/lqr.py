@@ -154,8 +154,8 @@ class DescentDir(LQR):
         if 'z0' in kwargs.keys():
             self.z0 = kwargs['z0']
         else:
-            #self.z0 = -np.dot(inv(self.P(0)), self.r(0))
-            self.z0 = np.zeros(self.n)
+            self.z0 = -np.dot(inv(self.P(0)), self.r(0))
+            #self.z0 = np.zeros(self.n)
 
         self.direction = self.solve(self.z0)
 

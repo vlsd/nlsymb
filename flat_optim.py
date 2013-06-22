@@ -26,11 +26,11 @@ if __name__ == "__main__":
     u = map(ref.u, t)
     """
 
-    with Timer():
+    with Timer("whole program"):
         with Timer("creating symbolic system"):
             s = SymSys(k=10)
             qinit = np.array([0, 10])
-            qdoti = np.array([1, -2])
+            qdoti = np.array([0, 0])
             xinit = np.concatenate((s.Psi(qinit),
                                     np.dot(s.dPsi(qinit), qdoti)))
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
             tj = nlsys.project(ref, lin=True)
             trajectories.append(tj)
 
-        for index in range(10):
+        for index in range(1):
             with Timer("descent direction and line search "):
                 descdir = DescentDir(tj, ref, tlims=tlims, Rscale=1)
                 print("cost of trajectory before descent: %f" %

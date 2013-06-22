@@ -2,7 +2,7 @@ import numpy as np
 import sympy as sym
 from sympy import Symbol as S
 from copy import deepcopy
-from scipy.integrate import simps
+from scipy.integrate import trapz
 
 import tensor as tn
 from . import matmult, interxpolate, sysIntegrate, Trajectory
@@ -54,12 +54,12 @@ class System():
     # TODO make sure this works in all combinations of linearization
     # or not, and controlled or not; first, though, get it working with
     # everything on
-    def integrate(self, **kwargs):
+    def integrate(self, use_jac=False, linearize=True,
+                  interpolate=True,**kwargs):
         keys = kwargs.keys()
         xinit = kwargs['xinit'] if 'xinit' in keys else self.xinit
-        use_jac = kwargs['use_jac'] if 'use_jac' in keys else False
-        lin = kwargs['linearize'] if 'linearize' in keys else True
-        interp = kwargs['interpolate'] if 'interpolate' in keys else True
+        lin = linearize
+        interp = interpolate
 
         if self.ufun is not None:
             func = lambda t, x: self.f(t, x, self.ufun(t, x))
@@ -102,6 +102,7 @@ class System():
             pass
 
         if lin:
+            print("linearizing...")
             self.lintraj = traj
             self.regulator = LQR(traj.A, traj.B, 
                                  tlims=self.tlims, Rscale=1)
@@ -113,15 +114,16 @@ class System():
             tlims = self.tlims
 
         if 'regulator' in self.__dict__.keys():
-            #print("regular projection")
+            print("regular projection")
             ltj = self.lintraj
             reg = self.regulator
             control = Controller(reference=traj, K=reg.K)
 
             self.set_u(control)
+            print(lin)
             return self.integrate(linearize=lin)
         else:
-            #print("integrating and linearizing for the first time")
+            print("integrating and linearizing for the first time")
             control = Controller(reference=traj)
             
             self.set_u(control)
@@ -130,9 +132,19 @@ class System():
             return self.project(nutraj, tlims=tlims, 
                                 Rscale=Rscale, lin=lin)
 
+class CostFunction():
+    def __init__(self, dimx, dimu, ref,
+                 R=None, Q=None, PT=None, projector=None):
+        self.dimx = dimx
+        self.dimu = dimu
+        sefl.ref = ref
+        self.R = R
+        self.Q = Q
+        self.PT = PT
+        self.projector = (lambda x: x) if projector is None else projector
 
-    def cost(self, traj):
-        tj = self.project(traj)
+    def __call__(self, traj):
+        tj = projector(traj)
         T = self.tlims[1]
 
         tlist = tj._t
@@ -140,14 +152,14 @@ class System():
         for (t, x, u) in zip(tlist, tj._x, tj._u):
             xd = self.ref.x(t)
             ud = self.ref.u(t)
-            Q = self.regulator.Q(t)
-            R = self.regulator.R(t)
+            Q = self.Q(t)
+            R = self.R(t)
             expr = matmult(x-xd, Q, x-xd) + matmult(u-ud, R, u-ud)
             elist.append(expr)
 
         # integrate the above
-        out = 0.5 * simps(elist, tlist)
-        out += 0.5 * matmult(tj.x(T)-self.ref.x(T), self.regulator.P(T),
+        out = 0.5 * trapz(elist, tlist)
+        out += 0.5 * matmult(tj.x(T)-self.ref.x(T), self.PT,
                              tj.x(T)-self.ref.x(T))
         return out
 
@@ -164,7 +176,7 @@ class System():
             b = dir.b(t)
             elist.append(matmult(a.T, z) + matmult(b.T, v))
 
-        out = simps(elist, tlist)
+        out = trapz(elist, tlist)
         out += matmult(dir.r(T), dir.z(T))
 
         return out
