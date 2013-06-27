@@ -2,6 +2,7 @@ import numpy as np
 from scipy.linalg import schur
 from numpy.linalg import inv
 from scipy.integrate import ode
+from scipy.integrate import trapz
 
 from . import matmult, sysIntegrate, Trajectory
 
@@ -33,13 +34,9 @@ class LQR:
         if Q is None:
             # define it as identity
             self.Q = lambda t: Qscale*np.eye(self.n)
-        else:
-            self.Q = lambda t: Qscale*self.Q(t)
 
         if R is None:
             self.R = lambda t: Rscale*np.eye(self.m)
-        else:
-            self.R = lambda t: Rscale*self.R(t)
 
         if PT is None:
             self.PT = self.care(self.tf)
@@ -165,6 +162,8 @@ class DescentDir(LQR):
         self._z = self.direction._z
         self._v = self.direction._v
         self._t = self.direction._t
+        self.tmin = self.direction.tmin
+        self.tmax = self.direction.tmax
 
     def rsolve(self):
         def rdot(s, r):
@@ -220,6 +219,18 @@ class DescentDir(LQR):
         lintraj.interpolate()
 
         return lintraj
+
+    def cost(self):
+        elist = []
+        tlist = self._t
+        T = self.tmax
+        for (t, z, v) in zip(tlist, self._z, self._v):
+            expr = matmult(self.a(t), z) + matmult(self.b(t),v)
+            elist.append(expr)
+
+        out = trapz(elist, tlist) + matmult(self.r(T), self.z(T))
+
+        return out
 
     def __rmul__(self, scalar):
         # should only be called for a descent direction

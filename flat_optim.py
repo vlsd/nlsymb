@@ -29,24 +29,35 @@ if __name__ == "__main__":
     with Timer("whole program"):
         with Timer("creating symbolic system"):
             s = SymSys(k=10)
-            qinit = np.array([0, 10])
-            qdoti = np.array([0, 0])
-            xinit = np.concatenate((s.Psi(qinit),
-                                    np.dot(s.dPsi(qinit), qdoti)))
+
+        qinit = np.array([0, 10])
+        qdoti = np.array([-1, 0])
+        xinit = np.concatenate((s.Psi(qinit),
+                                np.dot(s.dPsi(qinit), qdoti)))
 
         ref = Trajectory('x', 'u')
         ref.addpoint(0, x=xinit, u=[0, 0])
         ref.addpoint(2, x=[-6, -7, 0, 0], u=[0, 0])
         ref.interpolate()
+        
+        """
+        # make a feasible reference trajectory
+        qinit = np.array([0, 10])
+        qdoti = np.array([2, 0])
+        xinit = np.concatenate((s.Psi(qinit),
+                                np.dot(s.dPsi(qinit), qdoti)))
+        """
 
         nlsys = System(s.f, tlims=tlims, xinit=xinit,
                        dfdx=s.dfdx, dfdu=s.dfdu)
         nlsys.phi = s.phi
         nlsys.ref = ref
-        Rcost = lambda t: np.diag([10,1])
-        Qcost = lambda t: np.diag([1, 1, 10, 10])
-        PTcost = Qcost(2)
-        cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
+
+        with Timer("building cost function"):
+            Rcost = lambda t: np.diag([1e-2, 1])
+            Qcost = lambda t: np.diag([1, 1, 1e-3, 1e-3])
+            PTcost = Qcost(2)
+            cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
         
         #zerocontrol = Controller(reference=ref)
         #nlsys.set_u(zerocontrol)
@@ -57,14 +68,18 @@ if __name__ == "__main__":
             #trajectories.append(tj)
 
         #with Timer("first projection"):
-            tj = nlsys.project(ref, lin=True)
+            tj = nlsys.project(ref,lin=True)
             trajectories.append(tj)
+            #tj = nlsys.project(tj, lin=True)
+            #trajectories.append(tj)
 
-        for index in range(1):
+        for index in range(3):
             with Timer("descent direction and line search "):
                 descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
                 print("cost of trajectory before descent: %f" %
                       cost(tj))
+                print("cost of descent direction: %f" % 
+                      descdir.cost())
 
                 ls = LineSearch(cost, cost.grad)
                 ls.set_x(tj)
@@ -73,7 +88,7 @@ if __name__ == "__main__":
                 
                 tj += ls.gamma * descdir
                 print("cost of trajectory after descent: %f" %
-                    nlsys.cost(tj))
+                    cost(tj))
 
             with Timer("second projection"):
                 tj = nlsys.project(tj, tlims=tlims, lin=True)
@@ -81,9 +96,9 @@ if __name__ == "__main__":
 
     tjt = tj
 
-    qref = [s.xtopq(ref.x(t)) for t in tjt._t]
-    q0 = map(s.xtopq, trajectories[0]._x)
-    qnu = map(s.xtopq, tjt._x)
+    qref = [s.xtoq(ref.x(t)) for t in tjt._t]
+    q0 = map(s.xtoq, trajectories[0]._x)
+    qnu = map(s.xtoq, tjt._x)
 
     plt.plot([qq[0] for qq in q0],
              [np.sin(qq[0]) for qq in q0])

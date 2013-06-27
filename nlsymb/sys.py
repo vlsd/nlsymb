@@ -112,20 +112,24 @@ class System():
             self.regulator = LQR(traj.A, traj.B, 
                                  tlims=self.tlims, Rscale=1)
 
+        traj.feasible = True
         return traj
 
     def project(self, traj, tlims=None, Rscale=1, lin=False):
+        if traj.feasible:
+            return traj
+
         if tlims is None:
             tlims = self.tlims
 
         if 'regulator' in self.__dict__.keys():
-            print("regular projection")
+            #print("regular projection")
             ltj = self.lintraj
             reg = self.regulator
             control = Controller(reference=traj, K=reg.K)
 
             self.set_u(control)
-            print(lin)
+            #print(lin)
             return self.integrate(linearize=lin)
         else:
             print("integrating and linearizing for the first time")
@@ -149,7 +153,7 @@ class CostFunction():
         self.projector = (lambda x: x) if projector is None else projector
 
     def __call__(self, traj):
-        tj = projector(traj)
+        tj = self.projector(traj)
         T = tj.tmax
 
         tlist = tj._t

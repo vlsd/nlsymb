@@ -25,7 +25,8 @@ class Trajectory():
         self._t = []
         self.tmax = None
         self.tmin = None
-
+        self.feasible = False
+        
     #def __call__(self, t):
     #    # evaluates at t if there is only one series stored
     #    # TODO make sure this works; not really necessary now
@@ -75,11 +76,12 @@ class Trajectory():
             x += direction.z(t)
             u += direction.v(t)
         out.interpolate()
+        out.feasible = False
         return out
 
 
 class LineSearch():
-    def __init__(self, func, grad, alpha=1e-2, beta=1e-8):
+    def __init__(self, func, grad, alpha=1, beta=1e-8):
         # func takes a point
         # grad takes a point and a direction
         self.func = func
