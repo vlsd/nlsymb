@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
         with Timer("building cost function"):
             Rcost = lambda t: np.diag([1e-2, 1])
-            Qcost = lambda t: np.diag([1, 1, 1e-3, 1e-3])
+            Qcost = lambda t: np.diag([10, 10, 1e-3, 1e-3])
             PTcost = Qcost(2)
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
         
@@ -73,17 +73,17 @@ if __name__ == "__main__":
             #tj = nlsys.project(tj, lin=True)
             #trajectories.append(tj)
 
-        for index in range(3):
+        for index in range(10):
             with Timer("descent direction and line search "):
                 descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
                 print("cost of trajectory before descent: %f" %
                       cost(tj))
                 print("cost of descent direction: %f" % 
-                      descdir.cost())
+                      descdir.cost)
 
-                ls = LineSearch(cost, cost.grad)
-                ls.set_x(tj)
-                ls.set_p(descdir)
+                ls = LineSearch(cost, cost.grad, alpha=1e-2)
+                ls.x = tj
+                ls.p = descdir
                 ls.search()
                 
                 tj += ls.gamma * descdir
@@ -96,9 +96,9 @@ if __name__ == "__main__":
 
     tjt = tj
 
-    qref = [s.xtoq(ref.x(t)) for t in tjt._t]
-    q0 = map(s.xtoq, trajectories[0]._x)
-    qnu = map(s.xtoq, tjt._x)
+    qref = [s.xtopq(ref.x(t)) for t in tjt._t]
+    q0 = map(s.xtopq, trajectories[0]._x)
+    qnu = map(s.xtopq, tjt._x)
 
     plt.plot([qq[0] for qq in q0],
              [np.sin(qq[0]) for qq in q0])

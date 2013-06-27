@@ -89,12 +89,6 @@ class LineSearch():
         self.alpha = alpha
         self.beta = beta
 
-    def set_x(self, x):
-        self.x = x
-
-    def set_p(self, p):
-        self.p = p
-
     def search(self):
         x = self.x
         p = self.p
@@ -105,6 +99,7 @@ class LineSearch():
             gamma = gamma/2
             print("decreasing gamma to %f" % gamma)
         self.gamma = gamma
+
 
 
 class Timer():
