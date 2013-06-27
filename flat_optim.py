@@ -41,9 +41,13 @@ if __name__ == "__main__":
 
         nlsys = System(s.f, tlims=tlims, xinit=xinit,
                        dfdx=s.dfdx, dfdu=s.dfdu)
-        nlsys.set_phi(s.phi)
-        nlsys.set_ref(ref)
-
+        nlsys.phi = s.phi
+        nlsys.ref = ref
+        Rcost = lambda t: np.diag([10,1])
+        Qcost = lambda t: np.diag([1, 1, 10, 10])
+        PTcost = Qcost(2)
+        cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
+        
         #zerocontrol = Controller(reference=ref)
         #nlsys.set_u(zerocontrol)
 
@@ -58,11 +62,11 @@ if __name__ == "__main__":
 
         for index in range(1):
             with Timer("descent direction and line search "):
-                descdir = DescentDir(tj, ref, tlims=tlims, Rscale=1)
+                descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
                 print("cost of trajectory before descent: %f" %
-                      nlsys.cost(tj))
+                      cost(tj))
 
-                ls = LineSearch(nlsys.cost, nlsys.grad)
+                ls = LineSearch(cost, cost.grad)
                 ls.set_x(tj)
                 ls.set_p(descdir)
                 ls.search()

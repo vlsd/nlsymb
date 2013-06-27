@@ -8,9 +8,9 @@ from . import matmult, sysIntegrate, Trajectory
 
 class LQR:
     # a class representing a LQR problem
-    def __init__(self, A, B, P=None, Q=None, R=None, tlims=(0, 10),
-                 Rscale=1, Qscale=1):
-        attribs = {'Q': Q, 'R': R, 'Pf': P, 'A': A, 
+    def __init__(self, A, B, Q=None, R=None, tlims=(0, 10),
+                 Rscale=1, Qscale=1, PT=None):
+        attribs = {'Q': Q, 'R': R, 'PT': PT, 'A': A, 
                    'B': B, 'tlims': tlims}
         for k, v in attribs.iteritems():
             setattr(self, k, v)
@@ -41,8 +41,8 @@ class LQR:
         else:
             self.R = lambda t: Rscale*self.R(t)
 
-        if P is None:
-            self.Pf = np.eye(self.n)
+        if PT is None:
+            self.PT = self.care(self.tf)
 
         # this is a Trajectory object
         self.Ptraj = self.cdre()
@@ -82,7 +82,7 @@ class LQR:
         # in order to do backward integration we need to define s=-t
         s0, send = (-tend, -t0)
 
-        P0 = self.care(tend)
+        PT = self.PT
         n = self.n
 
         # this implements the riccati equation
@@ -100,9 +100,9 @@ class LQR:
         # backwards integration
         solver = ode(Pdot)
         solver.set_integrator('vode', max_step=1e-1)
-        solver.set_initial_value(P0.ravel(), s0)
+        solver.set_initial_value(PT.ravel(), s0)
         t = [-s0]
-        P = [P0]
+        P = [PT]
 
         while solver.successful() and solver.t < send:
             solver.integrate(send, step=True)
@@ -139,13 +139,14 @@ class Controller():
 
 
 class DescentDir(LQR):
-    def __init__(self, traj, ref, **kwargs):
-        LQR.__init__(self, traj.A, traj.B, **kwargs)
+    def __init__(self, traj, ref, cost=None, **kwargs):
+        LQR.__init__(self, traj.A, traj.B, PT=cost.PT,
+                     R=cost.R, Q=cost.Q, **kwargs)
 
         self.traj = traj
         self.ref = ref
         tf = self.tf
-        self.rf = np.dot(self.Pf, self.traj.x(tf) - self.ref.x(tf))
+        self.rf = np.dot(self.PT, self.traj.x(tf) - self.ref.x(tf))
         self.a = lambda t: np.dot(self.Q(t), self.traj.x(t) - self.ref.x(t))
         self.b = lambda t: np.dot(self.R(t), self.traj.u(t) - self.ref.u(t))
 

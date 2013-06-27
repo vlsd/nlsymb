@@ -34,8 +34,16 @@ class System():
         self.dfdu = kwargs['dfdu'] if 'dfdu' in keys else None
         self.phi = kwargs['phi'] if 'phi' in keys else None
 
-    def set_phi(self, phi):
-        self.phi = phi
+        if self.ufun is None:
+            self.dimu = 0
+        else:
+            self.dimu = len(self.dimu(tlims[0]))
+
+    # to be called after a reference has been set
+    def build_cost(self, **kwargs):
+        self.cost = CostFunction(self.dim, self.dimu, self.ref, 
+                                 projector=self.project, **kwargs)
+        return self.cost
 
     def set_u(self, controller):
         if 'ufun' in self.__dict__.keys():
@@ -47,9 +55,6 @@ class System():
             self.u = self._uold
         else:
             print("Nothing to reset to. Not doing anything.")
-
-    def set_ref(self, ref):
-        self.ref=ref
 
     # TODO make sure this works in all combinations of linearization
     # or not, and controlled or not; first, though, get it working with
@@ -137,7 +142,7 @@ class CostFunction():
                  R=None, Q=None, PT=None, projector=None):
         self.dimx = dimx
         self.dimu = dimu
-        sefl.ref = ref
+        self.ref = ref
         self.R = R
         self.Q = Q
         self.PT = PT
@@ -145,7 +150,7 @@ class CostFunction():
 
     def __call__(self, traj):
         tj = projector(traj)
-        T = self.tlims[1]
+        T = tj.tmax
 
         tlist = tj._t
         elist = []
@@ -167,7 +172,7 @@ class CostFunction():
         # this shouldn't be needed
         #tj = self.project(traj)
         
-        T = self.tlims[1]
+        T = dir.tmax
 
         tlist = dir._t
         elist = []
