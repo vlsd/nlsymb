@@ -13,10 +13,26 @@ from nlsymb import Timer, LineSearch
 from nlsymb.sys import *
 from nlsymb.lqr import *
 
+# plots a trajectory on the given canvas
+def TPlot(tj, fig=None, xlims=(-7,7), clear=False):
+    import matplotlib.pyplot as plt
+    if fig is None:
+        fig = plt.figure()
+        #rect = 0.15, 0.1, 0.7, 0.3
+        ax = fig.gca(aspect='equal')
+        xlist = np.linspace(*xlims)
+        bound, = ax.plot(xlist, np.sin(xlist), color='red', lw=2)
+
+    ax = fig.gca()
+    q = np.array(tj._q).T
+    ax.plot(q[0], q[1])
+    fig.show()
+    return fig
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import time
+    import pickle
 
     tlims = (0, 2)
 
@@ -31,13 +47,14 @@ if __name__ == "__main__":
             s = SymSys(k=10)
 
         qinit = np.array([0, 10])
-        qdoti = np.array([-1, 0])
+        qdoti = np.array([2, 0])
         xinit = np.concatenate((s.Psi(qinit),
                                 np.dot(s.dPsi(qinit), qdoti)))
 
-        ref = Trajectory('x', 'u')
-        ref.addpoint(0, x=xinit, u=[0, 0])
-        ref.addpoint(2, x=[-6, -7, 0, 0], u=[0, 0])
+        
+        ref_file = open('openlooptj.pkl', 'rb')
+        ref = pickle.load(ref_file)
+        ref_file.close()
         ref.interpolate()
         
         """
@@ -63,23 +80,29 @@ if __name__ == "__main__":
         #nlsys.set_u(zerocontrol)
 
         trajectories = []
-        with Timer("initial projection"):
-            #tj = nlsys.integrate()
-            #trajectories.append(tj)
-
-        #with Timer("first projection"):
+        with Timer("initial projection and descent direction"):
             tj = nlsys.project(ref,lin=True)
             trajectories.append(tj)
-            #tj = nlsys.project(tj, lin=True)
-            #trajectories.append(tj)
+        
+            descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
+            print("cost of trajectory before descent: %f" %
+                  cost(tj))
+            ddircost = descdir.cost
+            print("cost of descent direction: %f" % 
+                  ddircost)
 
-        for index in range(10):
+        index = 0
+        while ddircost > 1e-5 :
+            index = index+1
+
             with Timer("descent direction and line search "):
-                descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
-                print("cost of trajectory before descent: %f" %
-                      cost(tj))
-                print("cost of descent direction: %f" % 
-                      descdir.cost)
+                if index is not 1:
+                    descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
+                    print("cost of trajectory before descent: %f" %
+                          cost(tj))
+                    ddircost = descdir.cost
+                    print("cost of descent direction: %f" % 
+                          ddircost)
 
                 ls = LineSearch(cost, cost.grad, alpha=1e-2)
                 ls.x = tj
@@ -94,16 +117,20 @@ if __name__ == "__main__":
                 tj = nlsys.project(tj, tlims=tlims, lin=True)
                 trajectories.append(tj)
 
-    tjt = tj
 
-    qref = [s.xtopq(ref.x(t)) for t in tjt._t]
-    q0 = map(s.xtopq, trajectories[0]._x)
-    qnu = map(s.xtopq, tjt._x)
+    #tjt = tj
 
-    plt.plot([qq[0] for qq in q0],
-             [np.sin(qq[0]) for qq in q0])
-    plt.plot([qq[0] for qq in qref], [qq[1] for qq in qref])
-    plt.plot([qq[0] for qq in q0], [qq[1] for qq in q0])
-    plt.plot([qq[0] for qq in qnu], [qq[1] for qq in qnu])
-    plt.axis('equal')
-    plt.show()
+    #qref = [s.xtopq(ref.x(t)) for t in tjt._t]
+    #q0 = map(s.xtopq, trajectories[0]._x)
+    #qnu = map(s.xtopq, tjt._x)
+
+    #plt.plot([qq[0] for qq in q0],
+    #         [np.sin(qq[0]) for qq in q0])
+    #plt.plot([qq[0] for qq in qref], [qq[1] for qq in qref])
+    #plt.plot([qq[0] for qq in q0], [qq[1] for qq in q0])
+    #plt.plot([qq[0] for qq in qnu], [qq[1] for qq in qnu])
+    #plt.axis('equal')
+    #plt.show()
+
+
+

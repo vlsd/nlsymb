@@ -79,6 +79,23 @@ class Trajectory():
         out.feasible = False
         return out
 
+    def xtoq(self, s):
+        self._q = map(s.xtopq, self._x)
+        self.interpolate()
+    
+    def xtonq(self, s):
+        self._nq = map(s.xtoq, self._x)
+        self.interpolate()
+
+    def __getstate__(self):
+        temp = self.__dict__.copy()
+        for k in temp.keys():
+            if k[0] is '_':
+                pass
+            elif k not in ['tmin','tmax','feasible']:
+                del temp[k]
+        return temp
+
 
 class LineSearch():
     def __init__(self, func, grad, alpha=1, beta=1e-8):
