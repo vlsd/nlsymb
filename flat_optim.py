@@ -27,7 +27,18 @@ def TPlot(tj, fig=None, xlims=(-7,7), clear=False):
     q = np.array(tj._q).T
     ax.plot(q[0], q[1])
     fig.show()
+    ax.redraw_in_frame()
     return fig
+
+def quickPlot():
+    fig = TPlot(ref)
+    TPlot(itj, fig=fig)
+    for tj in trajectories:
+        tj.xtoq(s)
+        TPlot(tj, fig=fig)
+
+    return fig
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -46,26 +57,29 @@ if __name__ == "__main__":
         with Timer("creating symbolic system"):
             s = SymSys(k=10)
 
-        qinit = np.array([0, 10])
-        qdoti = np.array([2, 0])
-        xinit = np.concatenate((s.Psi(qinit),
-                                np.dot(s.dPsi(qinit), qdoti)))
-
-        
+        # load the reference (target) trajectory
         ref_file = open('openlooptj.pkl', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
+        ref.xtoq(s)
         ref.interpolate()
         
-        """
-        # make a feasible reference trajectory
+        # make an initial guess trajectory
         qinit = np.array([0, 10])
         qdoti = np.array([2, 0])
         xinit = np.concatenate((s.Psi(qinit),
                                 np.dot(s.dPsi(qinit), qdoti)))
-        """
-
-        nlsys = System(s.f, tlims=tlims, xinit=xinit,
+        
+        itj = Trajectory('x','u')
+        tmid = (tlims[0] + tlims[1])/2
+        itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
+        #itj.addpoint(tmid, x=ref.x(tmid), u=ref.u(tmid))
+        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=ref.u(tlims[1]))
+        itj.xtoq(s)
+        itj.interpolate()
+        
+    
+        nlsys = System(s.f, tlims=tlims, xinit=itj.x(tlims[0]),
                        dfdx=s.dfdx, dfdu=s.dfdu)
         nlsys.phi = s.phi
         nlsys.ref = ref
@@ -81,7 +95,7 @@ if __name__ == "__main__":
 
         trajectories = []
         with Timer("initial projection and descent direction"):
-            tj = nlsys.project(ref,lin=True)
+            tj = nlsys.project(itj,lin=True)
             trajectories.append(tj)
         
             descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)

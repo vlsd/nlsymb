@@ -122,6 +122,8 @@ class System():
         if tlims is None:
             tlims = self.tlims
 
+        self.xinit = traj.x(tlims[0])
+
         if 'regulator' in self.__dict__.keys():
             #print("regular projection")
             ltj = self.lintraj

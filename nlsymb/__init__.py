@@ -114,7 +114,7 @@ class LineSearch():
         gamma = self.alpha
         while self.func(x + gamma * p) > func + self.beta * gamma * grad:
             gamma = gamma/2
-            print("decreasing gamma to %f" % gamma)
+            print("decreasing gamma to %e" % gamma)
         self.gamma = gamma
 
 
