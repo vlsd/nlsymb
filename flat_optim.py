@@ -44,8 +44,13 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import time
     import pickle
-
-    tlims = (0, 2)
+    
+    # the following lines are in order to be able to reload nlsymb in ipython
+    # dreload(nlsymb, excludes)
+    from IPython.lib.deepreload import reload as dreload
+    excludes = ['time', 'pickle', 'matplotlib.pyplot', 'sys', '__builtin__', '__main__', 'numpy', 'scipy', 'matplotlib', 'os.path', 'sympy', 'scipy.integrate', 'scipy.interpolate', 'nlsymb.sympy']
+    
+    tlims = (0, 1)
 
     """
     t = np.linspace(0, 10, 100)
@@ -118,7 +123,7 @@ if __name__ == "__main__":
                     print("cost of descent direction: %f" % 
                           ddircost)
 
-                ls = LineSearch(cost, cost.grad, alpha=1e-2)
+                ls = LineSearch(cost, cost.grad, alpha=0.5)
                 ls.x = tj
                 ls.p = descdir
                 ls.search()
