@@ -7,6 +7,7 @@ from scipy.integrate import trapz
 import tensor as tn
 from . import matmult, interxpolate, sysIntegrate, Trajectory
 from lqr import LQR, Controller
+from timeout import timeout
 
 
 class System():
@@ -110,12 +111,14 @@ class System():
             print("linearizing...")
             self.lintraj = traj
             self.regulator = LQR(traj.A, traj.B, 
-                                 tlims=self.tlims, Rscale=1)
+                                 tlims=self.tlims)
 
         traj.feasible = True
         return traj
+    
 
-    def project(self, traj, tlims=None, Rscale=1, lin=False):
+    @timeout(30)
+    def project(self, traj, tlims=None, lin=False):
         if traj.feasible:
             return traj
 
@@ -141,7 +144,7 @@ class System():
             nutraj = self.integrate(linearize=True)
 
             return self.project(nutraj, tlims=tlims, 
-                                Rscale=Rscale, lin=lin)
+                                lin=lin)
 
 class CostFunction():
     def __init__(self, dimx, dimu, ref,
@@ -290,7 +293,7 @@ class SymSys():
                                      + tn.einsum(
                                          'i,ikl,k', zdot, self.dMz, zdot)/2
                                      + self.dVz
-                                     - np.dot(self._dOhm.T, self.u)
+                                     + np.dot(self._dOhm.T, self.u)
                                      )
                               ))
 
@@ -303,7 +306,7 @@ class SymSys():
 
         out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
             + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot)/2
-        out = np.dot(self.Mzzi, out + self.dVzz - np.dot(self._dOhm.T, self.u))
+        out = np.dot(self.Mzzi, out + self.dVzz + np.dot(self._dOhm.T, self.u))
         out = out - tn.einsum('ijk,j,k',
                                   tn.diff(self._dP, self.z), zdot, zdot)
         # note: dP is the same as dPinverse. woo!

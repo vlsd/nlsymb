@@ -20,7 +20,7 @@ def TPlot(tj, fig=None, xlims=(-7,7), clear=False):
         fig = plt.figure()
         #rect = 0.15, 0.1, 0.7, 0.3
         ax = fig.gca(aspect='equal')
-        xlist = np.linspace(*xlims)
+        xlist = np.linspace(*xlims, num=200)
         bound, = ax.plot(xlist, np.sin(xlist), color='red', lw=2)
 
     ax = fig.gca()
@@ -33,14 +33,14 @@ def TPlot(tj, fig=None, xlims=(-7,7), clear=False):
 def quickPlot():
     fig = TPlot(ref)
     TPlot(itj, fig=fig)
-    for tj in trajectories:
-        tj.xtoq(s)
+    for tj in trajectories[-3:]:
+        tj.xtonq(s)
         TPlot(tj, fig=fig)
 
     return fig
 
-
 if __name__ == "__main__":
+
     import matplotlib.pyplot as plt
     import time
     import pickle
@@ -48,9 +48,9 @@ if __name__ == "__main__":
     # the following lines are in order to be able to reload nlsymb in ipython
     # dreload(nlsymb, excludes)
     from IPython.lib.deepreload import reload as dreload
-    excludes = ['time', 'pickle', 'matplotlib.pyplot', 'sys', '__builtin__', '__main__', 'numpy', 'scipy', 'matplotlib', 'os.path', 'sympy', 'scipy.integrate', 'scipy.interpolate', 'nlsymb.sympy']
+    excludes = ['time', 'pickle', 'matplotlib.pyplot', 'sys', '__builtin__', '__main__', 'numpy', 'scipy', 'matplotlib', 'os.path', 'sympy', 'scipy.integrate', 'scipy.interpolate', 'nlsymb.sympy', 'nlsymb.numpy', 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time']
     
-    tlims = (0, 1)
+    tlims = (0, 2)
 
     """
     t = np.linspace(0, 10, 100)
@@ -66,20 +66,23 @@ if __name__ == "__main__":
         ref_file = open('openlooptj.pkl', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
-        ref.xtoq(s)
+        ref.xtonq(s)
         ref.interpolate()
         
         # make an initial guess trajectory
-        qinit = np.array([0, 10])
-        qdoti = np.array([2, 0])
+        qinit = np.array([0.0, 11.0])
+        qdoti = np.array([-1, 0.0])
+
+
         xinit = np.concatenate((s.Psi(qinit),
                                 np.dot(s.dPsi(qinit), qdoti)))
         
         itj = Trajectory('x','u')
         tmid = (tlims[0] + tlims[1])/2
-        itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
+        itj.addpoint(tlims[0], x=xinit, u=ref.u(tlims[0]))
+        #itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
         #itj.addpoint(tmid, x=ref.x(tmid), u=ref.u(tmid))
-        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=ref.u(tlims[1]))
+        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.0,0.0]))
         itj.xtoq(s)
         itj.interpolate()
         
@@ -89,11 +92,10 @@ if __name__ == "__main__":
         nlsys.phi = s.phi
         nlsys.ref = ref
 
-        with Timer("building cost function"):
-            Rcost = lambda t: np.diag([1e-2, 1])
-            Qcost = lambda t: np.diag([10, 10, 1e-3, 1e-3])
-            PTcost = Qcost(2)
-            cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
+        Rcost = lambda t: np.diag([1, 1])
+        Qcost = lambda t: np.diag([10, 10, 1, 1])
+
+        PTcost = Qcost(2)
         
         #zerocontrol = Controller(reference=ref)
         #nlsys.set_u(zerocontrol)
@@ -102,7 +104,8 @@ if __name__ == "__main__":
         with Timer("initial projection and descent direction"):
             tj = nlsys.project(itj,lin=True)
             trajectories.append(tj)
-        
+       
+            cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
             descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
             print("cost of trajectory before descent: %f" %
                   cost(tj))
@@ -111,11 +114,13 @@ if __name__ == "__main__":
                   ddircost)
 
         index = 0
-        while ddircost > 1e-5 :
+        ls = None
+        while ddircost > 1e-2 :
             index = index+1
 
             with Timer("descent direction and line search "):
                 if index is not 1:
+                    cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
                     descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
                     print("cost of trajectory before descent: %f" %
                           cost(tj))
@@ -123,12 +128,16 @@ if __name__ == "__main__":
                     print("cost of descent direction: %f" % 
                           ddircost)
 
-                ls = LineSearch(cost, cost.grad, alpha=0.5)
+                if ls is None:
+                    alpha = 100/ddircost
+                else:
+                    alpha = ls.gamma*2
+                ls = LineSearch(cost, cost.grad, alpha=alpha)
                 ls.x = tj
                 ls.p = descdir
                 ls.search()
                 
-                tj += ls.gamma * descdir
+                tj = tj + ls.gamma * descdir
                 print("cost of trajectory after descent: %f" %
                     cost(tj))
 
@@ -150,6 +159,5 @@ if __name__ == "__main__":
     #plt.plot([qq[0] for qq in qnu], [qq[1] for qq in qnu])
     #plt.axis('equal')
     #plt.show()
-
 
 

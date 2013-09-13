@@ -5,6 +5,7 @@ import scipy
 from scipy.integrate import ode
 import scipy.interpolate
 from copy import deepcopy
+from timeout import TimeoutError
 
 # from matutils import matmult
 def matmult(*x):
@@ -84,7 +85,7 @@ class Trajectory():
         self.interpolate()
     
     def xtonq(self, s):
-        self._nq = map(s.xtoq, self._x)
+        self._q = map(s.xtoq, self._x)
         self.interpolate()
 
     def __getstate__(self):
@@ -98,7 +99,7 @@ class Trajectory():
 
 
 class LineSearch():
-    def __init__(self, func, grad, alpha=1, beta=1e-8):
+    def __init__(self, func, grad, alpha=1, beta=0*1e-8):
         # func takes a point
         # grad takes a point and a direction
         self.func = func
@@ -109,12 +110,23 @@ class LineSearch():
     def search(self):
         x = self.x
         p = self.p
-        grad = self.grad(x, p)
+        #grad = self.grad(x, p)
+        grad = 1
         func = self.func(x)
         gamma = self.alpha
-        while self.func(x + gamma * p) > func + self.beta * gamma * grad:
-            gamma = gamma/2
-            print("decreasing gamma to %e" % gamma)
+        while True:
+            try:
+                if self.func(x + gamma * p) > \
+                        func + self.beta * gamma * grad:
+                    gamma = gamma/2
+                    print("decreasing gamma to %e" % gamma)
+                    # this will not work with the -O flag
+                    assert gamma > 1e-18, gamma
+                else:
+                    break
+            except TimeoutError:
+                gamma = gamma/10
+                print("Timed out, decreasing gamma to %e" % gamma)
         self.gamma = gamma
 
 

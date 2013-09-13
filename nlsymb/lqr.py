@@ -39,7 +39,8 @@ class LQR:
             self.R = lambda t: Rscale*np.eye(self.m)
 
         if PT is None:
-            self.PT = self.care(self.tf)
+            self.PT = np.eye(self.n)
+            #self.PT = self.care(self.tf)
 
         # this is a Trajectory object
         self.Ptraj = self.cdre()
@@ -132,28 +133,31 @@ class Controller():
         if self.zero:
             return self.ref.u(t)
         else:
-            return self.ref.u(t) + np.dot(self.K(t), self.ref.x(t) - x)
+            return self.ref.u(t) - np.dot(self.K(t), x - self.ref.x(t))
 
 
 class DescentDir(LQR):
     def __init__(self, traj, ref, cost=None, **kwargs):
-        LQR.__init__(self, traj.A, traj.B, PT=cost.PT,
-                     R=cost.R, Q=cost.Q, **kwargs)
+        # not passing R and Q to LQR, getting set to
+        # identity by default
+        LQR.__init__(self, traj.A, traj.B, **kwargs)
 
+        self._cost = cost
         self.traj = traj
         self.ref = ref
         tf = self.tf
-        self.rf = np.dot(self.PT, self.traj.x(tf) - self.ref.x(tf))
-        self.a = lambda t: np.dot(self.Q(t), self.traj.x(t) - self.ref.x(t))
-        self.b = lambda t: np.dot(self.R(t), self.traj.u(t) - self.ref.u(t))
+        P1 = cost.PT
+        self.rf = np.dot(P1, self.traj.x(tf) - self.ref.x(tf))
+        self.a = lambda t: np.dot(cost.Q(t), self.traj.x(t) - self.ref.x(t))
+        self.b = lambda t: np.dot(cost.R(t), self.traj.u(t) - self.ref.u(t))
 
         self.r = self.rsolve()
 
         if 'z0' in kwargs.keys():
             self.z0 = kwargs['z0']
         else:
-            self.z0 = -np.dot(inv(self.P(0)), self.r(0))
-            #self.z0 = np.zeros(self.n)
+            #self.z0 = -np.dot(inv(self.P(0)), self.r(0))
+            self.z0 = np.zeros(self.n)
 
         self.direction = self.solve(self.z0)
 
@@ -183,7 +187,7 @@ class DescentDir(LQR):
         # leaving this here until I change sysIntegrate to handle
         # backwards integration
         solver = ode(rdot)
-        solver.set_integrator('vode', max_step=1e-1, min_step=1e-10)
+        solver.set_integrator('vode', max_step=1e-1, min_step=1e-13)
         solver.set_initial_value(self.rf, -self.tf)
         t = [-self.tf]
         r = [self.rf]
@@ -229,8 +233,7 @@ class DescentDir(LQR):
             expr = matmult(z, self.Q(t), z) + matmult(v, self.R(t), v)
             elist.append(expr)
 
-        out = trapz(elist, tlist) + matmult(self.z(T), self.PT,
-                                            self.z(T))
+        out = trapz(elist, tlist) + matmult(self.z(T), self.PT, self.z(T))
 
         return out
 
