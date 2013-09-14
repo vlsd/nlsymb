@@ -306,7 +306,7 @@ class SymSys():
 
         out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
             + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot)/2
-        out = np.dot(self.Mzzi, out + self.dVzz + np.dot(self._dOhm.T, self.u))
+        out = np.dot(self.Mzzi, out + self.dVzz - np.dot(self._dOhm.T, self.u))
         out = out - tn.einsum('ijk,j,k',
                                   tn.diff(self._dP, self.z), zdot, zdot)
         # note: dP is the same as dPinverse. woo!

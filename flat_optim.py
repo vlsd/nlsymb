@@ -34,7 +34,7 @@ def quickPlot():
     fig = TPlot(ref)
     TPlot(itj, fig=fig)
     for tj in trajectories[-3:]:
-        tj.xtonq(s)
+        tj.xtoq(s)
         TPlot(tj, fig=fig)
 
     return fig
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     from IPython.lib.deepreload import reload as dreload
     excludes = ['time', 'pickle', 'matplotlib.pyplot', 'sys', '__builtin__', '__main__', 'numpy', 'scipy', 'matplotlib', 'os.path', 'sympy', 'scipy.integrate', 'scipy.interpolate', 'nlsymb.sympy', 'nlsymb.numpy', 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time']
     
-    tlims = (0, 2)
+    tlims = (1.7, 2)
 
     """
     t = np.linspace(0, 10, 100)
@@ -66,11 +66,11 @@ if __name__ == "__main__":
         ref_file = open('openlooptj.pkl', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
-        ref.xtonq(s)
+        ref.xtoq(s)
         ref.interpolate()
         
         # make an initial guess trajectory
-        qinit = np.array([0.0, 11.0])
+        qinit = np.array([0.0, 10.0])
         qdoti = np.array([-1, 0.0])
 
 
@@ -78,11 +78,11 @@ if __name__ == "__main__":
                                 np.dot(s.dPsi(qinit), qdoti)))
         
         itj = Trajectory('x','u')
-        tmid = (tlims[0] + tlims[1])/2
-        itj.addpoint(tlims[0], x=xinit, u=ref.u(tlims[0]))
+        #tmid = (tlims[0] + tlims[1])/2
+        itj.addpoint(tlims[0], x=ref.x(tlims[0]), u=ref.u(tlims[0]))
         #itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
-        #itj.addpoint(tmid, x=ref.x(tmid), u=ref.u(tmid))
-        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.0,0.0]))
+        #itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
+        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.1,0.0]))
         itj.xtoq(s)
         itj.interpolate()
         
