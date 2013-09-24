@@ -213,10 +213,10 @@ class SymSys():
 
     _Psi = np.array([q[0], q[1] - sym.sin(q[0])])
 
-    alltoz = [(q[i], _Ohm[i]) for i in range(dim)] + \
-        [(x[i], z[i]) for i in range(dim)]
-    alltoq = [(z[i], _Psi[i]) for i in range(dim)] + \
-        [(x[i], _Psi[i]) for i in range(dim)]
+    qtoz = zip(q, _Ohm)
+    alltoz = qtoz + [(x[i], z[i]) for i in range(dim)]
+    ztoq = zip(z, _Psi)
+    alltoq = ztoq + [(x[i], _Psi[i]) for i in range(dim)]
     ztox = [(z[i], x[i]) for i in range(dim)]
 
     # dOhm/dz
@@ -294,7 +294,7 @@ class SymSys():
                                          'i,ikl,k', zdot, self.dMz, zdot)/2
                                      + self.dVz) \
                               + matmult(\
-                                  tn.subs(self._dPsi, self.alltoz),
+                                  tn.subs(self._dPsi, self.qtoz),
                                   self.Mqi, # here we might need subs
                                   self.u)
                               ))
@@ -303,6 +303,9 @@ class SymSys():
 
     def _makefm(self):
         zdot = self.x[2:4]
+        OhmP = tn.subs(self._Ohm, zip(self.z, self._P))
+        OhmI = tn.subs(self._dPsi, zip(self.q, OhmP))
+
         zz = self._P
         zzdot = np.dot(self._dP, zdot)
 
@@ -311,11 +314,10 @@ class SymSys():
         out = np.dot(self.Mzzi, out + self.dVzz)
         out = out - tn.einsum('ijk,j,k',
                                   tn.diff(self._dP, self.z), zdot, zdot)
-        out = matmult(self._dPi, out)
-        out = out + matmult(self._dP, 
-                            tn.subs(self._dPsi, self.alltoz),
+        out = out + matmult(OhmI,
                             self.Mqi, # in general, there should be a subs here
                             self.u)
+        out = matmult(self._dPi, out)
         out = np.concatenate((zdot, out))
 
         return tn.SymExpr(tn.subs(out, self.ztox))
