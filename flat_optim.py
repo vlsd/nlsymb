@@ -32,7 +32,7 @@ def TPlot(tj, fig=None, xlims=(-7,7), clear=False):
 
 def quickPlot():
     fig = TPlot(ref)
-    TPlot(itj, fig=fig)
+    #TPlot(itj, fig=fig)
     for tj in trajectories[-3:]:
         tj.xtoq(s)
         TPlot(tj, fig=fig)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     from IPython.lib.deepreload import reload as dreload
     excludes = ['time', 'pickle', 'matplotlib.pyplot', 'sys', '__builtin__', '__main__', 'numpy', 'scipy', 'matplotlib', 'os.path', 'sympy', 'scipy.integrate', 'scipy.interpolate', 'nlsymb.sympy', 'nlsymb.numpy', 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time']
     
-    tlims = (1.7, 2)
+    tlims = (1.7, 2.7)
 
     """
     t = np.linspace(0, 10, 100)
@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     with Timer("whole program"):
         with Timer("creating symbolic system"):
-            s = SymSys(k=10)
+            s = SymSys(k=5)
 
         # load the reference (target) trajectory
         ref_file = open('openlooptj.pkl', 'rb')
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         itj.addpoint(tlims[0], x=ref.x(tlims[0]), u=ref.u(tlims[0]))
         #itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
         #itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
-        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.1,0.0]))
+        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([1.0,0.0]))
         itj.xtoq(s)
         itj.interpolate()
         

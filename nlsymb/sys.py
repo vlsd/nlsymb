@@ -292,9 +292,11 @@ class SymSys():
                                          'i,ijk,k', zdot, self.dMz, zdot)
                                      + tn.einsum(
                                          'i,ikl,k', zdot, self.dMz, zdot)/2
-                                     + self.dVz
-                                     + np.dot(self._dOhm.T, self.u)
-                                     )
+                                     + self.dVz) \
+                              + matmult(\
+                                  tn.subs(self._dPsi, self.alltoz),
+                                  self.Mqi, # here we might need subs
+                                  self.u)
                               ))
 
         return tn.SymExpr(tn.subs(out, self.ztox))
@@ -306,11 +308,15 @@ class SymSys():
 
         out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
             + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot)/2
-        out = np.dot(self.Mzzi, out + self.dVzz - np.dot(self._dOhm.T, self.u))
+        out = np.dot(self.Mzzi, out + self.dVzz)
         out = out - tn.einsum('ijk,j,k',
                                   tn.diff(self._dP, self.z), zdot, zdot)
-        # note: dP is the same as dPinverse. woo!
-        out = np.concatenate((zdot, np.dot(self._dPi, out)))
+        out = matmult(self._dPi, out)
+        out = out + matmult(self._dP, 
+                            tn.subs(self._dPsi, self.alltoz),
+                            self.Mqi, # in general, there should be a subs here
+                            self.u)
+        out = np.concatenate((zdot, out))
 
         return tn.SymExpr(tn.subs(out, self.ztox))
 
