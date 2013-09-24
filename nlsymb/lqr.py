@@ -230,10 +230,10 @@ class DescentDir(LQR):
         tlist = self._t
         T = self.tmax
         for (t, z, v) in zip(tlist, self._z, self._v):
-            expr = matmult(z, self.Q(t), z) + matmult(v, self.R(t), v)
+            expr = matmult(z, self._cost.Q(t), z) + matmult(v, self._cost.R(t), v)
             elist.append(expr)
 
-        out = trapz(elist, tlist) + matmult(self.z(T), self.PT, self.z(T))
+        out = trapz(elist, tlist) + matmult(self.z(T), self._cost.PT, self.z(T))
 
         return out
 

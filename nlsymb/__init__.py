@@ -99,7 +99,7 @@ class Trajectory():
 
 
 class LineSearch():
-    def __init__(self, func, grad, alpha=1, beta=0*1e-8):
+    def __init__(self, func, grad, alpha=1, beta=1e-8):
         # func takes a point
         # grad takes a point and a direction
         self.func = func
