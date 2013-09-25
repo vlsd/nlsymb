@@ -209,9 +209,9 @@ class SymSys():
     u = map(S, ['u0', 'u1'])
 
     # create Ohm and dOhm
-    _Ohm = np.array([z[0], z[1] + 1e-1*sym.sin(z[0])])
+    _Ohm = np.array([z[0], z[1] + sym.sin(z[0])])
 
-    _Psi = np.array([q[0], q[1] - 1e-1*sym.sin(q[0])])
+    _Psi = np.array([q[0], q[1] - sym.sin(q[0])])
 
     qtoz = zip(q, _Ohm)
     alltoz = qtoz + [(x[i], z[i]) for i in range(dim)]

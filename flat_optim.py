@@ -21,7 +21,7 @@ def TPlot(tj, fig=None, xlims=(-7,7), clear=False):
         #rect = 0.15, 0.1, 0.7, 0.3
         ax = fig.gca(aspect='equal')
         xlist = np.linspace(*xlims, num=200)
-        bound, = ax.plot(xlist, 1e-1*np.sin(xlist), color='red', lw=2)
+        bound, = ax.plot(xlist, np.sin(xlist), color='red', lw=2)
 
     ax = fig.gca()
     q = np.array(tj._q).T
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         #ref.interpolate()
         
         # make an initial guess trajectory
-        qinit = np.array([0.0, -3.0])
+        qinit = np.array([0.0, 1.0])
         qdoti = np.array([0.0, 0.0])
 
 
