@@ -63,7 +63,7 @@ if __name__ == "__main__":
             s = SymSys(k=5)
 
         # load the reference (target) trajectory
-        ref_file = open('simpl_forced.p', 'rb')
+        ref_file = open('simpl_ol.p', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
         ref.xtonq(s)
@@ -79,10 +79,10 @@ if __name__ == "__main__":
         
         itj = Trajectory('x','u')
         #tmid = (tlims[0] + tlims[1])/2
-        itj.addpoint(tlims[0], x=xinit, u=np.array([0.0, 0.0]))
+        itj.addpoint(tlims[0], x=xinit, u=np.array([1.0, 0.0]))
         #itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
         #itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
-        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.0,0.0]))
+        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([1.0,0.0]))
         itj.xtoq(s)
         itj.interpolate()
         
