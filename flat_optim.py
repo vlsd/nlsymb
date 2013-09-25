@@ -92,10 +92,10 @@ if __name__ == "__main__":
         nlsys.phi = s.phi
         nlsys.ref = ref
 
-        Rcost = lambda t: np.diag([0, 0])
+        Rcost = lambda t: np.diag([1e-3, 1e-3])
         Qcost = lambda t: np.diag([1, 1, 0, 0])
 
-        PTcost = Qcost(2)
+        PTcost = 10.0*Qcost(2)
         
         #zerocontrol = Controller(reference=ref)
         #nlsys.set_u(zerocontrol)
