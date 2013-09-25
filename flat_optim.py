@@ -92,8 +92,8 @@ if __name__ == "__main__":
         nlsys.phi = s.phi
         nlsys.ref = ref
 
-        Rcost = lambda t: np.diag([0, 0])
-        Qcost = lambda t: np.diag([10, 10, 1, 1])
+        Rcost = lambda t: np.diag([1, 1])
+        Qcost = lambda t: np.diag([100, 100, 1, 1])
 
         PTcost = Qcost(2)
         
