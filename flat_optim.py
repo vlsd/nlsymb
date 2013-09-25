@@ -14,14 +14,14 @@ from nlsymb.sys import *
 from nlsymb.lqr import *
 
 # plots a trajectory on the given canvas
-def TPlot(tj, fig=None, xlims=(-7,7), clear=False):
+def TPlot(tj, fig=None, xlims=(-3,1), clear=False):
     import matplotlib.pyplot as plt
     if fig is None:
         fig = plt.figure()
         #rect = 0.15, 0.1, 0.7, 0.3
         ax = fig.gca(aspect='equal')
         xlist = np.linspace(*xlims, num=200)
-        bound, = ax.plot(xlist, 1e-1*np.sin(xlist), color='red', lw=2)
+        bound, = ax.plot(xlist, np.sin(xlist), color='red', lw=2)
 
     ax = fig.gca()
     q = np.array(tj._q).T
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     from IPython.lib.deepreload import reload as dreload
     excludes = ['time', 'pickle', 'matplotlib.pyplot', 'sys', '__builtin__', '__main__', 'numpy', 'scipy', 'matplotlib', 'os.path', 'sympy', 'scipy.integrate', 'scipy.interpolate', 'nlsymb.sympy', 'nlsymb.numpy', 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time']
     
-    tlims = (0, 3)
+    tlims = (0, 2)
 
     """
     t = np.linspace(0, 10, 100)
@@ -63,14 +63,14 @@ if __name__ == "__main__":
             s = SymSys(k=5)
 
         # load the reference (target) trajectory
-        ref_file = open('simpl_ol.p', 'rb')
+        ref_file = open('slow_free.p', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
         ref.xtonq(s)
         #ref.interpolate()
         
         # make an initial guess trajectory
-        qinit = np.array([0.0, -3.0])
+        qinit = np.array([0.0, -2.0])
         qdoti = np.array([0.0, 0.0])
 
 
@@ -79,10 +79,10 @@ if __name__ == "__main__":
         
         itj = Trajectory('x','u')
         #tmid = (tlims[0] + tlims[1])/2
-        itj.addpoint(tlims[0], x=xinit, u=np.array([1.0, 0.0]))
+        itj.addpoint(tlims[0], x=xinit, u=np.array([0.5, 0.0]))
         #itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
         #itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
-        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([1.0,0.0]))
+        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.5,0.0]))
         itj.xtoq(s)
         itj.interpolate()
         
@@ -92,8 +92,8 @@ if __name__ == "__main__":
         nlsys.phi = s.phi
         nlsys.ref = ref
 
-        Rcost = lambda t: np.diag([1, 1])
-        Qcost = lambda t: np.diag([100, 100, 1, 1])
+        Rcost = lambda t: np.diag([0, 0])
+        Qcost = lambda t: np.diag([1, 1, 0, 0])
 
         PTcost = Qcost(2)
         
