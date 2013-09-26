@@ -14,7 +14,7 @@ from nlsymb.sys import *
 from nlsymb.lqr import *
 
 # plots a trajectory on the given canvas
-def TPlot(tj, fig=None, xlims=(-7,7), clear=False):
+def TPlot(tj, fig=None, xlims=(-3,1), clear=False):
     import matplotlib.pyplot as plt
     if fig is None:
         fig = plt.figure()
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     from IPython.lib.deepreload import reload as dreload
     excludes = ['time', 'pickle', 'matplotlib.pyplot', 'sys', '__builtin__', '__main__', 'numpy', 'scipy', 'matplotlib', 'os.path', 'sympy', 'scipy.integrate', 'scipy.interpolate', 'nlsymb.sympy', 'nlsymb.numpy', 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time']
     
-    tlims = (0, 3)
+    tlims = (0, 2)
 
     """
     t = np.linspace(0, 10, 100)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
             s = SymSys(k=5)
 
         # load the reference (target) trajectory
-        ref_file = open('simpl_forced.p', 'rb')
+        ref_file = open('slow_forced.p', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
         ref.xtonq(s)
@@ -92,10 +92,10 @@ if __name__ == "__main__":
         nlsys.phi = s.phi
         nlsys.ref = ref
 
-        Rcost = lambda t: np.diag([1, 1])
-        Qcost = lambda t: np.diag([100, 100, 1, 1])
+        Rcost = lambda t: np.diag([10, 10])
+        Qcost = lambda t: np.diag([10, 10, 0, 0])
 
-        PTcost = Qcost(2)
+        PTcost = 2*Qcost(2)
         
         #zerocontrol = Controller(reference=ref)
         #nlsys.set_u(zerocontrol)
