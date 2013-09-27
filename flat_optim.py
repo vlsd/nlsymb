@@ -13,21 +13,71 @@ from nlsymb import Timer, LineSearch
 from nlsymb.sys import *
 from nlsymb.lqr import *
 
-# plots a trajectory on the given canvas
-def TPlot(tj, fig=None, xlims=(-3,1), clear=False):
+# coming soon to a theatre near you
+# DoublePlot
+def DPlot(tj, s, fig=None, clear=False,
+          xlims=(-2.6, 0.2), ylims=(-1.6, 1.1), label="",
+          **kwargs):
     import matplotlib.pyplot as plt
     if fig is None:
         fig = plt.figure()
         #rect = 0.15, 0.1, 0.7, 0.3
-        ax = fig.gca(aspect='equal')
+        axl = fig.add_subplot(121, aspect='equal', xlim=xlims, ylim=ylims,
+                              xlabel="$x(m)$", ylabel="$y(m)$", title='(a)')
+        axr = fig.add_subplot(122, aspect='equal', xlim=xlims, ylim=ylims,
+                              xlabel="$\\bar{x}$", ylabel="$\\bar{y}$",
+                              title='(b)')
         xlist = np.linspace(*xlims, num=200)
-        bound, = ax.plot(xlist, np.sin(xlist), color='red', lw=2)
+        bound = axl.fill_between(xlist, ylims[0], np.sin(xlist),
+                                 facecolor='grey', alpha=0.5)
+        bound = axr.fill_between(xlims, ylims[0], 0.0,
+                                 facecolor='grey', alpha=0.5)
+        philbl = axl.text(-6, -4, "$\phi(q)<0$")
+        psilbl = axr.text(-6, -4, "$\\bar{\phi}(\\bar{q})<0$")
+
+    [axl, axr] = fig.get_axes()
+    
+    tj.xtoq(s)
+    q = np.array(tj._q).T
+    qb = np.array(map(s.Psi, tj._q)).T
+
+    tj.xtonq(s)
+    z = np.array(tj._q).T
+    zb = np.array(map(s.Psi, tj._q)).T
+    
+    axl.plot(q[0], q[1], 'b-', label='q'+label, **kwargs)
+    axl.plot(z[0], z[1], 'r--', label='z'+label, **kwargs)
+    
+    axr.plot(qb[0], qb[1], 'b-', label='qb'+label, **kwargs)
+    axr.plot(zb[0], zb[1], 'r--', label='zb'+label, **kwargs)
+    fig.show()
+    #ax.redraw_in_frame()
+    return fig
+
+# plots a trajectory on the given canvas
+def TPlot(tj, s, fig=None, clear=False,
+          xlims=(-2.6, 0.2), ylims=(-1.6, 1.1), label="",
+          **kwargs):
+    import matplotlib.pyplot as plt
+    if fig is None:
+        fig = plt.figure()
+        #rect = 0.15, 0.1, 0.7, 0.3
+        ax = fig.gca(aspect='equal', xlim=xlims, ylim=ylims,
+                     xlabel="$x(m)$", ylabel="$y(m)$")
+        xlist = np.linspace(*xlims, num=200)
+        bound = ax.fill_between(xlist, ylims[0], np.sin(xlist),
+                                 facecolor='grey', alpha=0.5)
+        philbl = ax.text(-1, -1, "$\phi(q)<0$")
 
     ax = fig.gca()
+    tj.xtoq(s)
     q = np.array(tj._q).T
-    ax.plot(q[0], q[1])
+    tj.xtonq(s)
+    z = np.array(tj._q).T
+    ax.plot(q[0], q[1], '-', label='q'+label, **kwargs)
+    ax.plot(z[0], z[1], '--', label='z'+label, **kwargs)
     fig.show()
-    ax.redraw_in_frame()
+    #ax.redraw_in_frame()
     return fig
 
 def quickPlot():
@@ -101,17 +151,21 @@ if __name__ == "__main__":
         #nlsys.set_u(zerocontrol)
 
         trajectories = []
+        costs = []
+        gradcosts = []
         with Timer("initial projection and descent direction"):
             tj = nlsys.project(itj,lin=True)
             trajectories.append(tj)
        
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
             descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
-            print("cost of trajectory before descent: %f" %
-                  cost(tj))
+            
+            costs.append(cost(tj))
+            print("cost of trajectory before descent: %f" % costs[-1])
+            
             ddircost = descdir.cost
-            print("cost of descent direction: %f" % 
-                  ddircost)
+            gradcosts.append(ddircost)
+            print("cost of descent direction: %f" % ddircost)
 
         index = 0
         ls = None
@@ -120,13 +174,12 @@ if __name__ == "__main__":
 
             with Timer("descent direction and line search "):
                 if index is not 1:
-                    cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
-                    descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
-                    print("cost of trajectory before descent: %f" %
-                          cost(tj))
+                    costs.append(cost(tj))
+                    print("cost of trajectory before descent: %f" % costs[-1])
+                    
                     ddircost = descdir.cost
-                    print("cost of descent direction: %f" % 
-                          ddircost)
+                    gradcosts.append(ddircost)
+                    print("cost of descent direction: %f" % ddircost)
 
                 if ls is None:
                     alpha = 10000/ddircost
@@ -138,8 +191,7 @@ if __name__ == "__main__":
                 ls.search()
                 
                 tj = tj + ls.gamma * descdir
-                print("cost of trajectory after descent: %f" %
-                    cost(tj))
+                #print("cost of trajectory after descent: %f" % cost(tj))
 
             with Timer("second projection"):
                 tj = nlsys.project(tj, tlims=tlims, lin=True)

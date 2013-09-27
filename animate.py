@@ -46,14 +46,16 @@ def animate(i):
 
 
 if __name__ == "__main__":
-    fig = plt.figure(figsize=(10, 4))
-    xmin = -25
-    xmax = 5
-    ymin = -12
-    ymax = 12
+    fig = plt.figure(figsize=(8, 4))
+    xmin = -3*np.pi
+    xmax = np.pi
+    ymin = -6
+    ymax = 6
     axl = fig.add_subplot(121, xlim=(xmin, xmax), ylim=(ymin, ymax),
                           aspect='equal', xlabel="$x(m)$", ylabel="$y(m)$",
                           title='Euclidean Space')
+    #axl.tick_params(pad=-20)
+
     axr = fig.add_subplot(122, xlim=(xmin, xmax), ylim=(ymin, ymax),
                           aspect='equal', xlabel='$x_z$', ylabel='$y_z$',
                           title='Modified Space')
@@ -64,20 +66,20 @@ if __name__ == "__main__":
 
     qmass, = axl.plot([], [], 'bo', ms=6)
     qqmass, = axl.plot([], [], 'ro', ms=6)
-    qtraj, = axl.plot([], [], 'b--', lw=1)
     qqtraj, = axl.plot([], [], 'r--', lw=1)
+    qtraj, = axl.plot([], [], 'b--', lw=1)
     sinfloor = axl.fill_between(xarray, ymin, np.sin(xarray),
                                 facecolor='grey', alpha=0.5)
-    sinlabel = axl.text((xmax+xmin)/2, -3, "$\phi(q)<0$")
+    sinlabel = axl.text(-6, -4, "$\phi(q)<0$")
 
     flatfloor = axr.fill_between(xarray, ymin, 0*xarray,
                                  facecolor='grey', alpha=0.5)
-    flatlabel = axr.text(-13, -3.5, "$\psi(q_z)<0$")
+    flatlabel = axr.text(-6, -4, "$\psi(\\bar{q})<0$")
 
     zmass, = axr.plot([], [], 'bo', ms=6)
     zzmass, = axr.plot([], [], 'ro', ms=6)
-    ztraj, = axr.plot([], [], 'b--', lw=1)
     zztraj, = axr.plot([], [], 'r--', lw=1)
+    ztraj, = axr.plot([], [], 'b--', lw=1)
 
     tmin = lintraj._t[0]
     tmax = lintraj._t[-1]
@@ -87,7 +89,7 @@ if __name__ == "__main__":
                                   interval=1000/rate, blit=True,
                                   init_func=init, repeat=True)
 
-    ani.save('sin_floor_2d_sim.mp4',
+    ani.save('ref.mp4',
              fps=30, extra_args=['-vcodec', 'libx264'])
 
     #plt.show()
