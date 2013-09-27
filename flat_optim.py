@@ -142,10 +142,10 @@ if __name__ == "__main__":
         nlsys.phi = s.phi
         nlsys.ref = ref
 
-        Rcost = lambda t: np.diag([10, 10])
-        Qcost = lambda t: np.diag([10, 10, 0, 0])
+        Rcost = lambda t: np.diag([1, 1])
+        Qcost = lambda t: np.diag([10, 10, 1, 1])
 
-        PTcost = 2*Qcost(2)
+        PTcost = Qcost(2)
         
         #zerocontrol = Controller(reference=ref)
         #nlsys.set_u(zerocontrol)
@@ -196,6 +196,9 @@ if __name__ == "__main__":
             with Timer("second projection"):
                 tj = nlsys.project(tj, tlims=tlims, lin=True)
                 trajectories.append(tj)
+            
+            cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
+            descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
 
 
     #tjt = tj
