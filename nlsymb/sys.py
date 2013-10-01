@@ -114,6 +114,7 @@ class System():
                                  tlims=self.tlims)
 
         traj.feasible = True
+        traj.tlims = self.tlims
         return traj
     
 
@@ -159,7 +160,7 @@ class CostFunction():
 
     def __call__(self, traj):
         tj = self.projector(traj)
-        T = tj.tmax
+        T = tj.tlims[1]
 
         tlist = tj._t
         elist = []

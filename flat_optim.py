@@ -55,12 +55,12 @@ def DPlot(tj, s, fig=None, clear=False,
     return fig
 
 # plots a trajectory on the given canvas
-def TPlot(tj, s, fig=None, clear=False,
-          xlims=(-2.6, 0.2), ylims=(-1.6, 1.1), label="",
+def TPlot(tj, s, fig=None, ax=None, init=False,
+          xlims=(-3.1, 0.2), ylims=(-1.6, 1.1), label="",
           **kwargs):
     import matplotlib.pyplot as plt
     if fig is None:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(4,4))
         #rect = 0.15, 0.1, 0.7, 0.3
         ax = fig.gca(aspect='equal', xlim=xlims, ylim=ylims,
                      xlabel="$x(m)$", ylabel="$y(m)$")
@@ -69,15 +69,25 @@ def TPlot(tj, s, fig=None, clear=False,
                                  facecolor='grey', alpha=0.5)
         philbl = ax.text(-1, -1, "$\phi(q)<0$")
 
-    ax = fig.gca()
+    if ax is None:
+        ax = fig.gca()
+
+    if init is not False:
+        ax.set(aspect='equal', xlim=xlims, ylim=ylims,
+                     xlabel="$x(m)$", ylabel="$y(m)$")
+        xlist = np.linspace(*xlims, num=200)
+        ax.fill_between(xlist, ylims[0], np.sin(xlist),
+                                 facecolor='grey', alpha=0.5)
+        ax.text(-1, -1, "$\phi(q)<0$")
+
     tj.xtoq(s)
     q = np.array(tj._q).T
     tj.xtonq(s)
     z = np.array(tj._q).T
-    ax.plot(q[0], q[1], '-', label='q'+label, **kwargs)
     ax.plot(z[0], z[1], '--', label='z'+label, **kwargs)
+    ax.plot(q[0], q[1], '-', label='q'+label, lw=1.5, **kwargs)
     fig.show()
-    #ax.redraw_in_frame()
+    plt.draw()
     return fig
 
 def quickPlot():
