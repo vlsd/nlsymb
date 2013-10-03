@@ -70,11 +70,11 @@ if __name__ == "__main__":
     qtraj, = axl.plot([], [], 'b--', lw=1)
     sinfloor = axl.fill_between(xarray, ymin, np.sin(xarray),
                                 facecolor='grey', alpha=0.5)
-    sinlabel = axl.text(-6, -4, "$\phi(q)<0$")
+    sinlabel = axl.text(-6, -4, r"$\phi(q)<0$")
 
     flatfloor = axr.fill_between(xarray, ymin, 0*xarray,
                                  facecolor='grey', alpha=0.5)
-    flatlabel = axr.text(-6, -4, "$\psi(\\bar{q})<0$")
+    flatlabel = axr.text(-6, -4, r'$\bar{\phi}(\bar{q})<0$')
 
     zmass, = axr.plot([], [], 'bo', ms=6)
     zzmass, = axr.plot([], [], 'ro', ms=6)
@@ -89,7 +89,6 @@ if __name__ == "__main__":
                                   interval=1000/rate, blit=True,
                                   init_func=init, repeat=True)
 
-    ani.save('ref.mp4',
-             fps=30, extra_args=['-vcodec', 'libx264'])
+    ani.save('ref.mp4')
 
-    #plt.show()
+    plt.show()

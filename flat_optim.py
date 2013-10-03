@@ -126,7 +126,7 @@ if __name__ == "__main__":
         ref_file = open('slow_forced.p', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
-        ref.xtonq(s)
+        #ref.xtonq(s)
         #ref.interpolate()
         
         # make an initial guess trajectory
