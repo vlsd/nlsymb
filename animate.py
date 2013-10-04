@@ -46,28 +46,30 @@ def animate(i):
 
 
 if __name__ == "__main__":
-    fig = plt.figure(figsize=(8, 4))
+    fig = plt.figure(figsize=(8, 4.5))  # 16:9 ratio
     xmin = -3*np.pi
     xmax = np.pi
     ymin = -6
     ymax = 6
     axl = fig.add_subplot(121, xlim=(xmin, xmax), ylim=(ymin, ymax),
-                          aspect='equal', xlabel="$x(m)$", ylabel="$y(m)$",
+                          aspect='equal', xlabel="$x(m)$",
+                          ylabel="$y(m)$",
                           title='Euclidean Space')
     #axl.tick_params(pad=-20)
 
     axr = fig.add_subplot(122, xlim=(xmin, xmax), ylim=(ymin, ymax),
-                          aspect='equal', xlabel='$x_z$', ylabel='$y_z$',
+                          aspect='equal', xlabel=r'$\bar{x}$',
+                          ylabel=r'$\bar{y}$',
                           title='Modified Space')
-    axr.set_yticklabels([])
-    axr.set_xticklabels([])
+    #axr.set_yticklabels([])
+    #axr.set_xticklabels([])
 
     xarray = np.linspace(xmin, xmax, 100)
 
     qmass, = axl.plot([], [], 'bo', ms=6)
     qqmass, = axl.plot([], [], 'ro', ms=6)
     qqtraj, = axl.plot([], [], 'r--', lw=1)
-    qtraj, = axl.plot([], [], 'b--', lw=1)
+    qtraj, = axl.plot([], [], 'b-', lw=1)
     sinfloor = axl.fill_between(xarray, ymin, np.sin(xarray),
                                 facecolor='grey', alpha=0.5)
     sinlabel = axl.text(-6, -4, r"$\phi(q)<0$")
@@ -79,16 +81,18 @@ if __name__ == "__main__":
     zmass, = axr.plot([], [], 'bo', ms=6)
     zzmass, = axr.plot([], [], 'ro', ms=6)
     zztraj, = axr.plot([], [], 'r--', lw=1)
-    ztraj, = axr.plot([], [], 'b--', lw=1)
+    ztraj, = axr.plot([], [], 'b-', lw=1)
 
     tmin = lintraj._t[0]
     tmax = lintraj._t[-1]
-    rate = 30.0  # in frames per second
+    rate = 90.0  # in frames per second
 
-    ani = animation.FuncAnimation(fig, animate, frames=int(rate*(tmax-tmin)),
-                                  interval=1000/rate, blit=True,
+    ani = animation.FuncAnimation(fig, animate, 
+                                  frames=int(rate*(tmax-tmin)),
+                                  interval=1000/(rate), blit=True,
                                   init_func=init, repeat=True)
 
-    ani.save('ref.mp4')
+    # dpi = 720/height in inches for 720p output
+    ani.save('sim_super_slow.mp4', fps=30, bitrate=7500, dpi=160)
 
-    plt.show()
+    plt.close()
