@@ -246,3 +246,55 @@ class DescentDir(LQR):
 
         out.interpolate()
         return out
+
+# redefine LQR class to behave better (and more generally)
+class LQR(object):
+    """
+    what we need:
+     tlims = (ta, tb) : time interval
+     A(t), B(t) : linear system matrices
+     xa : initial condition
+     dims : optional, dimensions of state and control
+     Q(t), S(t), R(t), Qf : cost function matrices
+                            if not provided, default is identity
+    """
+    def __init__(self, tlims, A, B, xa, **kwargs):
+        self.tlims = tlims
+        (self.ta, self.tb) = tlims
+        (self.A, self.B) = (A, B)
+        self.xa = xa
+
+        # set the dimensions of the system and perform a check
+        # that A and B are the correct size (not yet implemented)
+        if 'dims' in kwargs.keys():
+            self.dims = kwargs['dims']
+        else:
+            self.dims = self.B(self.ta)
+        (self.n, self.m) = self.dims
+
+        return 0
+
+# class that implements an LQ problem and solver
+class LQ(object):
+    """
+    what we need:
+     dims : optional, dimensions of state and control
+     tlims = (ta, tb) : time interval
+     A(t), B(t) : linear system matrices
+     q(t), r(t), qf : linear terms in cost function
+     Q(t), S(t), R(t), Qf : quadratic model matrices
+     xa : initial condition
+     tswitch : optional, list of times at which dynamics switch
+     fswitch : list of jump terms to be added to q(t) at tswitch
+    """
+    def __init__(self, tlims, A, B, xa, **kwargs):
+        self.ta = tlims(0)
+        self.tb = tlims(1)
+        self.A = A
+        self.B = B
+        self.xa = xa
+        # TODO take care of all the other initializations
+
+        
+
+
