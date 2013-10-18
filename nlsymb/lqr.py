@@ -39,8 +39,10 @@ class LQR:
             self.R = lambda t: Rscale*np.eye(self.m)
 
         if PT is None:
-            self.PT = np.eye(self.n)
-            #self.PT = self.care(self.tf)
+            #self.PT = np.eye(self.n)
+            care = CARE(self.A(tb), self.B(tb), 
+                        R=self.R(tb), Q=self.Q(tb))
+            self.PT = care.P
 
         # this is a Trajectory object
         self.Ptraj = self.cdre()
@@ -53,88 +55,132 @@ class LQR:
         self.Ktraj.interpolate()
         self.K = self.Ktraj.K
 
-    # returns Pbar
-    def care(self, t):
+# check that the dimensions of A and B are correct and return them
+def DimExtract(A, B):
+    AA, BB = map(np.array, (A, B))
 
-        A = self.A(t)
-        B = self.B(t)
-        Q = self.Q(t)
-        R = self.R(t)
+    if AA.shape[0] is not AA.shape[1]:
+        raise Exception("A needs to be square")
+    
+    if AA.shape[0] is not BB.shape[0]:
+        raise Exception("A and B need to share the first dimension")
 
-        BRB = matmult(B, inv(R), B.T)
+    return BB.shape
+
+# continuous algebraic ricatti equation and solver
+class CARE(object):
+    def __init__(self, A, B, **kwargs):
+        self.dims = DimExtract(A, B)
+        self.n, self.m = self.dims
+
+        self.A = np.array(A)
+        self.B = np.array(B)
+
+        # get R and Q from qwargs 
+        keys = kwargs.keys()
+        self.Q = np.array(kwargs['Q']) if 'Q' in keys \
+            else np.eye(self.n)
+        self.R = np.array(kwargs['R']) if 'R' in keys \
+            else np.eye(self.n)
+        
+    def _solve(self):
+        BRB = matmult(self.B, inv(self.R), self.B.T)
         M = np.vstack([
-            np.hstack([A, -BRB]),
-            np.hstack([-Q, -A.T])
+            np.hstack([self.A, -BRB]),
+            np.hstack([-self.Q, -self.A.T])
         ])
         (L, Z, sdim) = schur(M, sort='lhp')
         U = Z.T
 
-        return matmult(inv(U[0:sdim, 0:sdim]), U[0:sdim, sdim:]).conj().T
+        self._P = matmult(inv(U[0:sdim, 0:sdim]),
+                    U[0:sdim, sdim:]).conj().T
 
-    # A, B, Q, R should be callables of t
-    # Returns callable P(t)
-    def cdre(self):
-        A, B, Q, R = (self.A, self.B, self.Q, self.R)
-        t0, tend = self.tlims
+        return self._P
+    
+    @property
+    def P(self):
+        if hasattr(self, '_P'):
+            return self._P
+        else:
+            return self.solve()
 
-        # in order to do backward integration we need to define s=-t
-        s0, send = (-tend, -t0)
+# continuous differential ricatti equation and solver
+class CDRE(object):
+    def __init__(self, tlims, A, B, **kwargs):
+        self.tlims = tlims
+        self.ta, self.tb = self.tlims
 
-        PT = self.PT
-        n = self.n
+        self.dims = DimExtract(A(ta), B(ta))
+        n, m = self.dims
 
-        # this implements the riccati equation
-        # by flattening the matrix P into a vector
-        def Pdot(s, P):
-            # rebuild the matrix from the array
-            P = P.reshape((n, n))
-            # do necessary matrix algebra
-            Pd = matmult(P, B(-s), inv(R(-s)), B(-s).T, P) -\
-                matmult(A(-s).T, P) - matmult(P, A(-s)) - Q(-s)
-            # ravel and multiply by -1 (for backwards integration)
-            return -Pd.ravel()
+        self.A, self.B = A, B
 
-        # leaving this here until I change sysIntegrate to handle
-        # backwards integration
-        solver = ode(Pdot)
-        solver.set_integrator('vode', max_step=1e-1)
-        solver.set_initial_value(PT.ravel(), s0)
-        t = [-s0]
-        P = [PT]
+        # get R and Q and Pb from qwargs 
+        self.Q = kwargs['Q'] if 'Q' in kwargs.keys() \
+            else lambda t : np.eye(n)
+        self.R = kwargs['R'] if 'R' in kwargs.keys() \
+            else lambda t : np.eye(m)
+ 
+        # if Pb is not given get it from solving
+        # a CARE at the final time
+        if 'Pb' in kwargs.keys():
+            self.Pb = kwargs['Pb']
+        else:
+            care = CARE(self.A(tb), self.B(tb), 
+                        R=self.R(tb), Q=self.Q(tb))
+            self.Pb = care.P
+        
+        self.Pdot = lambda s, P: self._Pdot(s, P)
 
-        while solver.successful() and solver.t < send:
-            solver.integrate(send, step=True)
-            P.append(solver.y.reshape((n, n)))
-            t.append(-solver.t)
+    def _Pdot(self, s, P):
+        A, B = self.A(-s), self.B(-s)
+        R, Q = self.R(-s), self.Q(-s)
 
-        ptraj = Trajectory('P')
-        for tt, pp in zip(t, P):
-            # if this is slow, then import itertools and use izip
-            ptraj.addpoint(tt, P=pp)
-        ptraj.interpolate()
+        # rebuild the matrix from the array
+        P = P.reshape((self.n, self.n))
+        # do necessary matrix algebra
+        Pd = matmult(P, B, inv(R), B.T, P) \
+                - matmult(A.T, P) - matmult(P, A) - Q
+        # ravel and multiply by -1 (for backwards integration)
+        return -Pd.ravel()
+        
+    def _solve(self, **kwargs):
+        sa, sb = -(self.ta,self.tb)
+        solver = ode(self.Pdot)
+        solver.set_integrator('vode', **kwargs)
+        solver.set_initial_value(self.Pb.ravel(), sb)
+        
+        self._Pt = Trajectory('P')
+        self._Pt.addpoint(-sb, P=Pb)
 
-        return ptraj
+        while solver.successful() and solver.t < sa:
+            solver.integrate(sa, step=True)
+            self.Ptraj.addpoint(-solver.t, solver.y.reshape((n,n)))
+    
+        self._Pt.interpolate()
+        return self._Pt
 
-    def bintegrate(self, func, shape, tlims):
-        # TODO write this to do backwards, matrix integration
-        pass
-
+    def P(self, t):
+        if hasattr(self, '_Pt'):
+            return self._Pt.P(t)
+        else:
+            #                 ,here we add max_step option
+            return self.solve().P(t)
 
 class Controller():
     def __init__(self, **kwargs):
         self.ref = kwargs['reference']
+        self.n = len(self.ref._x[0])
+        self.m = len(self.ref._u[0])
+        self.C = kwargs['C'] if 'C' in kwargs.keys() else np.zeros(m)
         if 'K' in kwargs.keys():
             self.K = kwargs['K']
-            self.zero = False
         else:
-            self.zero = True
+            self.K = np.zeros((m,n))
 
     def __call__(self, t, x):
-        if self.zero:
-            return self.ref.u(t)
-        else:
-            return self.ref.u(t) - np.dot(self.K(t), x - self.ref.x(t))
-
+        return self.ref.u(t) - \
+                matmult(self.K(t), x - self.ref.x(t)) - self.C(t)
 
 class DescentDir(LQR):
     def __init__(self, traj, ref, cost=None, **kwargs):
@@ -248,31 +294,44 @@ class DescentDir(LQR):
         return out
 
 # redefine LQR class to behave better (and more generally)
-class LQR(object):
+class LQR(CDRE):
     """
     what we need:
      tlims = (ta, tb) : time interval
      A(t), B(t) : linear system matrices
      xa : initial condition
      dims : optional, dimensions of state and control
-     Q(t), S(t), R(t), Qf : cost function matrices
+     Q(t), S(t), R(t), Qf=Pb : cost function matrices
                             if not provided, default is identity
+     NOTE: S(t) not actually implemented
     """
     def __init__(self, tlims, A, B, xa, **kwargs):
-        self.tlims = tlims
-        (self.ta, self.tb) = tlims
-        (self.A, self.B) = (A, B)
+        CDRE.__init__(tlims, A, B, **kwargs)
+        
         self.xa = xa
-
-        # set the dimensions of the system and perform a check
-        # that A and B are the correct size (not yet implemented)
-        if 'dims' in kwargs.keys():
-            self.dims = kwargs['dims']
+        self.Qf = self.Pb
+        if 'S' in kwargs.keys():
+            self.S = kwargs['S']
         else:
-            self.dims = self.B(self.ta)
-        (self.n, self.m) = self.dims
+            self.S = lambda t : np.zeros((n,m))
 
-        return 0
+    def _solve(self):
+        CDRE._solve()
+        self._Kt = Trajectory('K')
+        for (t, P) in zip(self._Pt._t, self._Pt._P):
+            K = matmult(inv(self.R(t)), self.B(t).T, P)
+            self._Kt.addpoint(t, K=K)
+
+        self._Kt.interpolate()
+        return self._Kt
+
+    def K(self,t):
+        if hasattr(self, '_Kt'):
+            return self._Kt.K(t)
+        else:
+            return self._solve().K(t)
+
+        
 
 # class that implements an LQ problem and solver
 class LQ(object):
