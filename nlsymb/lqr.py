@@ -334,7 +334,16 @@ class LQ(LQR):
 
         while solver.successful() and solver.t < sa:
             solver.integrate(sa, step=True)
-            self._bt.addpoint(-solver.t, solver.y)
+            b = solver.y
+            
+            # find which jumps lie between this time step and the previous one
+            # add the corresponding term to b = solver.y + jumpterm
+            prevtime = np.min(self._bt._t) #replace with call to _bt.tmin
+            for (tj, fj) in self.jumps:
+                if prevtime > tj and tj > -solver.t :
+                    b = b + fj * (-solver.t - prevtime)
+            
+            self._bt.addpoint(-solver.t, b)
     
         self._bt.interpolate()
         self.b = self._bt.b
