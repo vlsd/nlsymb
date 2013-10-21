@@ -7,54 +7,6 @@ from scipy.integrate import trapz
 from . import matmult, sysIntegrate, Trajectory
 
 
-class LQR:
-    # a class representing a LQR problem
-    def __init__(self, A, B, Q=None, R=None, tlims=(0, 10),
-                 Rscale=1, Qscale=1, PT=None):
-        attribs = {'Q': Q, 'R': R, 'PT': PT, 'A': A, 
-                   'B': B, 'tlims': tlims}
-        for k, v in attribs.iteritems():
-            setattr(self, k, v)
-
-        self.t0 = tlims[0]
-        self.tf = tlims[1]
-
-        Adim = np.array(A(tlims[0])).shape
-        if Adim[0] != Adim[1]:
-            raise NameError('A must be square')
-        else:
-            self.n = Adim[0]
-
-        Bdim = np.array(B(tlims[0])).shape
-        if Bdim[0] != self.n:
-            raise NameError("B's first dimension must match A")
-        else:
-            self.m = Bdim[1]
-
-        if Q is None:
-            # define it as identity
-            self.Q = lambda t: Qscale*np.eye(self.n)
-
-        if R is None:
-            self.R = lambda t: Rscale*np.eye(self.m)
-
-        if PT is None:
-            #self.PT = np.eye(self.n)
-            care = CARE(self.A(tb), self.B(tb), 
-                        R=self.R(tb), Q=self.Q(tb))
-            self.PT = care.P
-
-        # this is a Trajectory object
-        self.Ptraj = self.cdre()
-        self.P = self.Ptraj.P
-
-        self.Ktraj = Trajectory('K')
-        for (t, P) in zip(self.Ptraj._t, self.Ptraj.P.y):
-            K = matmult(inv(self.R(t)), self.B(t).T, P)
-            self.Ktraj.addpoint(t, K=K)
-        self.Ktraj.interpolate()
-        self.K = self.Ktraj.K
-
 # check that the dimensions of A and B are correct and return them
 def DimExtract(A, B):
     AA, BB = map(np.array, (A, B))
@@ -331,10 +283,9 @@ class LQR(CDRE):
         else:
             return self._solve().K(t)
 
-        
 
 # class that implements an LQ problem and solver
-class LQ(object):
+class LQ(LQR):
     """
     what we need:
      dims : optional, dimensions of state and control
@@ -342,18 +293,65 @@ class LQ(object):
      A(t), B(t) : linear system matrices
      q(t), r(t), qf : linear terms in cost function
      Q(t), S(t), R(t), Qf : quadratic model matrices
-     xa : initial condition
-     tswitch : optional, list of times at which dynamics switch
-     fswitch : list of jump terms to be added to q(t) at tswitch
+     xa : initial condition, not needed unless want to implement 
+            optimal cost later on
+     jumps : optional, list of pairs (t, f) at which dynamics
+            switch and the jump term to be added to q(t) at that time
     """
-    def __init__(self, tlims, A, B, xa, **kwargs):
-        self.ta = tlims(0)
-        self.tb = tlims(1)
-        self.A = A
-        self.B = B
-        self.xa = xa
-        # TODO take care of all the other initializations
-
+    def __init__(self, tlims, A, B, **kwargs):
+        LQR.__init__(tlims, A, B, **kwargs)
+        # extra stuff
         
+        self.q = kwargs['q']
+        self.r = kwargs['r']
+        self.qf = kwargs['qf']
+        
+        self.bdot = lambda s, b: self._bdot(s, b)
 
+        self.jumps = kwargs['jumps'] if 'jump' in kwargs.keys() else []
+        self.tjmp, self.fjmp = map(list, zip(*self.jumps))
+
+    def _bdot(self, s, b):
+        A, B = self.A(-s), self.B(-s)
+        q, r = self.q(-s), self.r(-s)
+        K = self.K(-s)
+
+        # b is already a vector
+        bd = matmult(K.T, r) - q - \
+                matmult((A - matmult(B, K)).T, b)
+
+        return -bd  # negative for reverse integration
+
+    def _solve(self):
+        LQR._solve()
+        sa, sb = -(self.ta, self.tb)
+        solver = ode(self.bdot)
+        solver.set_integrator('vode', **kwargs)
+        solver.set_initial_value(self.qf, sb)
+        
+        self._bt = Trajectory('b')
+        self._bt.addpoint(-sb, b=self.qf)
+
+        while solver.successful() and solver.t < sa:
+            solver.integrate(sa, step=True)
+            self._bt.addpoint(-solver.t, solver.y)
+    
+        self._bt.interpolate()
+        self.b = self._bt.b
+
+        self._Ct = Trajectory('C')
+        for (t, b) in zip(self._bt._t, self._bt._b):
+            C = matmult(inv(self.R(t)), 
+                        matmult(self.B(t).T, b) + self.r(t))
+            self._Ct.addpoint(t, C=C)
+
+        self._Ct.interpolate()
+        return self.K, self._Ct.C
+    
+    def C(self, t):
+        if hasattr(self, '_Ct'):
+            return self._Ct.C(t)
+        else:
+            self.solve()
+            return self._Ct.C(t)
 
