@@ -13,14 +13,16 @@ def DimExtract(A, B):
 
     if AA.shape[0] is not AA.shape[1]:
         raise Exception("A needs to be square")
-    
+
     if AA.shape[0] is not BB.shape[0]:
         raise Exception("A and B need to share the first dimension")
 
     return BB.shape
 
-# continuous algebraic ricatti equation and solver
+
 class CARE(object):
+# continuous algebraic ricatti equation and solver
+
     def __init__(self, A, B, **kwargs):
         self.dims = DimExtract(A, B)
         self.n, self.m = self.dims
@@ -28,13 +30,13 @@ class CARE(object):
         self.A = np.array(A)
         self.B = np.array(B)
 
-        # get R and Q from qwargs 
+        # get R and Q from qwargs
         keys = kwargs.keys()
         self.Q = np.array(kwargs['Q']) if 'Q' in keys \
             else np.eye(self.n)
         self.R = np.array(kwargs['R']) if 'R' in keys \
             else np.eye(self.n)
-        
+
     def _solve(self):
         BRB = matmult(self.B, inv(self.R), self.B.T)
         M = np.vstack([
@@ -45,10 +47,10 @@ class CARE(object):
         U = Z.T
 
         self._P = matmult(inv(U[0:sdim, 0:sdim]),
-                    U[0:sdim, sdim:]).conj().T
+                          U[0:sdim, sdim:]).conj().T
 
         return self._P
-    
+
     @property
     def P(self):
         if hasattr(self, '_P'):
@@ -56,8 +58,10 @@ class CARE(object):
         else:
             return self.solve()
 
-# continuous differential ricatti equation and solver
+
 class CDRE(object):
+# continuous differential ricatti equation and solver
+
     def __init__(self, tlims, A, B, **kwargs):
         self.tlims = tlims
         self.ta, self.tb = self.tlims
@@ -67,21 +71,21 @@ class CDRE(object):
 
         self.A, self.B = A, B
 
-        # get R and Q and Pb from qwargs 
+        # get R and Q and Pb from qwargs
         self.Q = kwargs['Q'] if 'Q' in kwargs.keys() \
-            else lambda t : np.eye(n)
+            else lambda t: np.eye(n)
         self.R = kwargs['R'] if 'R' in kwargs.keys() \
-            else lambda t : np.eye(m)
- 
+            else lambda t: np.eye(m)
+
         # if Pb is not given get it from solving
         # a CARE at the final time
         if 'Pb' in kwargs.keys():
             self.Pb = kwargs['Pb']
         else:
-            care = CARE(self.A(tb), self.B(tb), 
+            care = CARE(self.A(tb), self.B(tb),
                         R=self.R(tb), Q=self.Q(tb))
             self.Pb = care.P
-        
+
         self.Pdot = lambda s, P: self._Pdot(s, P)
 
     def _Pdot(self, s, P):
@@ -92,23 +96,23 @@ class CDRE(object):
         P = P.reshape((self.n, self.n))
         # do necessary matrix algebra
         Pd = matmult(P, B, inv(R), B.T, P) \
-                - matmult(A.T, P) - matmult(P, A) - Q
+            - matmult(A.T, P) - matmult(P, A) - Q
         # ravel and multiply by -1 (for backwards integration)
         return -Pd.ravel()
-        
+
     def _solve(self, **kwargs):
-        sa, sb = -(self.ta,self.tb)
+        sa, sb = -(self.ta, self.tb)
         solver = ode(self.Pdot)
         solver.set_integrator('vode', **kwargs)
         solver.set_initial_value(self.Pb.ravel(), sb)
-        
+
         self._Pt = Trajectory('P')
         self._Pt.addpoint(-sb, P=Pb)
 
         while solver.successful() and solver.t < sa:
             solver.integrate(sa, step=True)
-            self.Ptraj.addpoint(-solver.t, solver.y.reshape((n,n)))
-    
+            self.Ptraj.addpoint(-solver.t, solver.y.reshape((n, n)))
+
         self._Pt.interpolate()
         return self._Pt
 
@@ -119,7 +123,9 @@ class CDRE(object):
             #                 ,here we add max_step option
             return self.solve().P(t)
 
+
 class Controller():
+
     def __init__(self, **kwargs):
         self.ref = kwargs['reference']
         self.n = len(self.ref._x[0])
@@ -128,13 +134,139 @@ class Controller():
         if 'K' in kwargs.keys():
             self.K = kwargs['K']
         else:
-            self.K = np.zeros((m,n))
+            self.K = np.zeros((m, n))
 
     def __call__(self, t, x):
         return self.ref.u(t) - \
-                matmult(self.K(t), x - self.ref.x(t)) - self.C(t)
+            matmult(self.K(t), x - self.ref.x(t)) - self.C(t)
+
+
+class LQR(CDRE):
+# redefine LQR class to behave better (and more generally)
+
+    """
+    what we need:
+     tlims = (ta, tb) : time interval
+     A(t), B(t) : linear system matrices
+     xa : initial condition
+     dims : optional, dimensions of state and control
+     Q(t), S(t), R(t), Qf=Pb : cost function matrices
+                            if not provided, default is identity
+     NOTE: S(t) not actually implemented
+    """
+
+    def __init__(self, tlims, A, B, xa, **kwargs):
+        CDRE.__init__(tlims, A, B, **kwargs)
+
+        self.xa = xa
+        self.Qf = self.Pb
+        if 'S' in kwargs.keys():
+            self.S = kwargs['S']
+        else:
+            self.S = lambda t: np.zeros((n, m))
+
+    def _solve(self):
+        CDRE._solve()
+        self._Kt = Trajectory('K')
+        for (t, P) in zip(self._Pt._t, self._Pt._P):
+            K = matmult(inv(self.R(t)), self.B(t).T, P)
+            self._Kt.addpoint(t, K=K)
+
+        self._Kt.interpolate()
+        return self._Kt
+
+    def K(self, t):
+        if hasattr(self, '_Kt'):
+            return self._Kt.K(t)
+        else:
+            return self._solve().K(t)
+
+
+class LQ(LQR):
+# class that implements an LQ problem and solver
+
+    """
+    what we need:
+     dims : optional, dimensions of state and control
+     tlims = (ta, tb) : time interval
+     A(t), B(t) : linear system matrices
+     q(t), r(t), qf : linear terms in cost function
+     Q(t), S(t), R(t), Qf : quadratic model matrices
+     xa : initial condition, not needed unless want to implement
+            optimal cost later on
+     jumps : optional, list of pairs (t, f) at which dynamics
+            switch and the jump term to be added to q(t) at that time
+    """
+
+    def __init__(self, tlims, A, B, **kwargs):
+        LQR.__init__(tlims, A, B, **kwargs)
+        # extra stuff
+
+        self.q = kwargs['q']
+        self.r = kwargs['r']
+        self.qf = kwargs['qf']
+
+        self.bdot = lambda s, b: self._bdot(s, b)
+
+        self.jumps = kwargs['jumps'] if 'jump' in kwargs.keys() else []
+        self.tjmp, self.fjmp = map(list, zip(*self.jumps))
+
+    def _bdot(self, s, b):
+        A, B = self.A(-s), self.B(-s)
+        q, r = self.q(-s), self.r(-s)
+        K = self.K(-s)
+
+        # b is already a vector
+        bd = matmult(K.T, r) - q - \
+            matmult((A - matmult(B, K)).T, b)
+
+        return -bd  # negative for reverse integration
+
+    def _solve(self):
+        LQR._solve()
+        sa, sb = -(self.ta, self.tb)
+        solver = ode(self.bdot)
+        solver.set_integrator('vode', **kwargs)
+        solver.set_initial_value(self.qf, sb)
+
+        self._bt = Trajectory('b')
+        self._bt.addpoint(-sb, b=self.qf)
+
+        while solver.successful() and solver.t < sa:
+            solver.integrate(sa, step=True)
+            b = solver.y
+
+            # find which jumps lie between this time step and the previous one
+            # add the corresponding term to b = solver.y + jumpterm
+            prevtime = np.min(self._bt._t)  # replace with call to _bt.tmin
+            for (tj, fj) in self.jumps:
+                if prevtime > tj and tj > -solver.t:
+                    b = b + fj * (-solver.t - prevtime)
+
+            self._bt.addpoint(-solver.t, b)
+
+        self._bt.interpolate()
+        self.b = self._bt.b
+
+        self._Ct = Trajectory('C')
+        for (t, b) in zip(self._bt._t, self._bt._b):
+            C = matmult(inv(self.R(t)),
+                        matmult(self.B(t).T, b) + self.r(t))
+            self._Ct.addpoint(t, C=C)
+
+        self._Ct.interpolate()
+        return self.K, self._Ct.C
+
+    def C(self, t):
+        if hasattr(self, '_Ct'):
+            return self._Ct.C(t)
+        else:
+            self.solve()
+            return self._Ct.C(t)
+
 
 class DescentDir(LQR):
+
     def __init__(self, traj, ref, cost=None, **kwargs):
         # not passing R and Q to LQR, getting set to
         # identity by default
@@ -154,7 +286,7 @@ class DescentDir(LQR):
         if 'z0' in kwargs.keys():
             self.z0 = kwargs['z0']
         else:
-            #self.z0 = -np.dot(inv(self.P(0)), self.r(0))
+            # self.z0 = -np.dot(inv(self.P(0)), self.r(0))
             self.z0 = np.zeros(self.n)
 
         self.direction = self.solve(self.z0)
@@ -228,10 +360,12 @@ class DescentDir(LQR):
         tlist = self._t
         T = self.tmax
         for (t, z, v) in zip(tlist, self._z, self._v):
-            expr = matmult(z, self._cost.Q(t), z) + matmult(v, self._cost.R(t), v)
+            expr = matmult(z, self._cost.Q(t), z) + \
+                matmult(v, self._cost.R(t), v)
             elist.append(expr)
 
-        out = trapz(elist, tlist) + matmult(self.z(T), self._cost.PT, self.z(T))
+        out = trapz(elist, tlist) + matmult(
+            self.z(T), self._cost.PT, self.z(T))
 
         return out
 
@@ -240,127 +374,7 @@ class DescentDir(LQR):
         # which only has z and v components
         out = Trajectory('z', 'v')
         for (t, z, v) in zip(self._t, self._z, self._v):
-            out.addpoint(t, z=scalar*z, v=scalar*v)
+            out.addpoint(t, z=scalar * z, v=scalar * v)
 
         out.interpolate()
         return out
-
-# redefine LQR class to behave better (and more generally)
-class LQR(CDRE):
-    """
-    what we need:
-     tlims = (ta, tb) : time interval
-     A(t), B(t) : linear system matrices
-     xa : initial condition
-     dims : optional, dimensions of state and control
-     Q(t), S(t), R(t), Qf=Pb : cost function matrices
-                            if not provided, default is identity
-     NOTE: S(t) not actually implemented
-    """
-    def __init__(self, tlims, A, B, xa, **kwargs):
-        CDRE.__init__(tlims, A, B, **kwargs)
-        
-        self.xa = xa
-        self.Qf = self.Pb
-        if 'S' in kwargs.keys():
-            self.S = kwargs['S']
-        else:
-            self.S = lambda t : np.zeros((n,m))
-
-    def _solve(self):
-        CDRE._solve()
-        self._Kt = Trajectory('K')
-        for (t, P) in zip(self._Pt._t, self._Pt._P):
-            K = matmult(inv(self.R(t)), self.B(t).T, P)
-            self._Kt.addpoint(t, K=K)
-
-        self._Kt.interpolate()
-        return self._Kt
-
-    def K(self,t):
-        if hasattr(self, '_Kt'):
-            return self._Kt.K(t)
-        else:
-            return self._solve().K(t)
-
-
-# class that implements an LQ problem and solver
-class LQ(LQR):
-    """
-    what we need:
-     dims : optional, dimensions of state and control
-     tlims = (ta, tb) : time interval
-     A(t), B(t) : linear system matrices
-     q(t), r(t), qf : linear terms in cost function
-     Q(t), S(t), R(t), Qf : quadratic model matrices
-     xa : initial condition, not needed unless want to implement 
-            optimal cost later on
-     jumps : optional, list of pairs (t, f) at which dynamics
-            switch and the jump term to be added to q(t) at that time
-    """
-    def __init__(self, tlims, A, B, **kwargs):
-        LQR.__init__(tlims, A, B, **kwargs)
-        # extra stuff
-        
-        self.q = kwargs['q']
-        self.r = kwargs['r']
-        self.qf = kwargs['qf']
-        
-        self.bdot = lambda s, b: self._bdot(s, b)
-
-        self.jumps = kwargs['jumps'] if 'jump' in kwargs.keys() else []
-        self.tjmp, self.fjmp = map(list, zip(*self.jumps))
-
-    def _bdot(self, s, b):
-        A, B = self.A(-s), self.B(-s)
-        q, r = self.q(-s), self.r(-s)
-        K = self.K(-s)
-
-        # b is already a vector
-        bd = matmult(K.T, r) - q - \
-                matmult((A - matmult(B, K)).T, b)
-
-        return -bd  # negative for reverse integration
-
-    def _solve(self):
-        LQR._solve()
-        sa, sb = -(self.ta, self.tb)
-        solver = ode(self.bdot)
-        solver.set_integrator('vode', **kwargs)
-        solver.set_initial_value(self.qf, sb)
-        
-        self._bt = Trajectory('b')
-        self._bt.addpoint(-sb, b=self.qf)
-
-        while solver.successful() and solver.t < sa:
-            solver.integrate(sa, step=True)
-            b = solver.y
-            
-            # find which jumps lie between this time step and the previous one
-            # add the corresponding term to b = solver.y + jumpterm
-            prevtime = np.min(self._bt._t) #replace with call to _bt.tmin
-            for (tj, fj) in self.jumps:
-                if prevtime > tj and tj > -solver.t :
-                    b = b + fj * (-solver.t - prevtime)
-            
-            self._bt.addpoint(-solver.t, b)
-    
-        self._bt.interpolate()
-        self.b = self._bt.b
-
-        self._Ct = Trajectory('C')
-        for (t, b) in zip(self._bt._t, self._bt._b):
-            C = matmult(inv(self.R(t)), 
-                        matmult(self.B(t).T, b) + self.r(t))
-            self._Ct.addpoint(t, C=C)
-
-        self._Ct.interpolate()
-        return self.K, self._Ct.C
-    
-    def C(self, t):
-        if hasattr(self, '_Ct'):
-            return self._Ct.C(t)
-        else:
-            self.solve()
-            return self._Ct.C(t)
-
