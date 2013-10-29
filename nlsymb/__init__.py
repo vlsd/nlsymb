@@ -71,7 +71,32 @@ class Trajectory():
                 ifunc = interxpolate(self._t, getattr(self, k), axis=0)
                 setattr(self, k[1:], ifunc)
 
-    def __add__(self, direction):
+    def __add__(self, other):
+        names = (set(self.__dict__) & set(other.__dict__)) - {'t','_t'}
+        names = {k[1:] for k in names if k[0] is '_'}
+        tj = Trajectory(*names)
+        other.interpolate()
+        for t in self._t:
+            tj.addpoint(t, **{n:(getattr(self, n)(t) + getattr(other, n)(t)) 
+                              for n in names})
+        tj.interpolate()
+        tj.feasible = False
+        return tj
+
+    def __rmul__(self, scalar):
+        # multiplies everything by the scalar
+        names = {k[1:] for k in self.__dict__.keys() \
+                 if k[0] is '_' and k[1:] is not 't'}
+        out = Trajectory(*names)
+        for t in self._t:
+            out.addpoint(t, **{n : scalar * getattr(self, n)(t)})
+
+        out.interpolate()
+        out.feasible=False
+        return out
+
+    """ old version of add, see above for new version
+    def __add__(self, other):
         out = deepcopy(self)
         for (t, x, u) in zip(out._t, out._x, out._u):
             x += direction.z(t)
@@ -79,6 +104,7 @@ class Trajectory():
         out.interpolate()
         out.feasible = False
         return out
+    """
 
     def xtoq(self, s):
         self._q = map(s.xtopq, self._x)

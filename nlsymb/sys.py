@@ -180,21 +180,22 @@ class CostFunction():
 
     def grad(self, traj, dir):
         # this shouldn't be needed
-        #tj = self.project(traj)
-        
-        T = dir.tmax
+        pass
+    #    #tj = self.project(traj)
+    #    
+    #    T = dir.tmax
 
-        tlist = dir._t
-        elist = []
-        for (t, z, v) in zip(tlist, dir._z, dir._v):
-            a = dir.a(t)
-            b = dir.b(t)
-            elist.append(matmult(a.T, z) + matmult(b.T, v))
+    #    tlist = dir._t
+    #    elist = []
+    #    for (t, z, v) in zip(tlist, dir._z, dir._v):
+    #        a = dir.a(t)
+    #        b = dir.b(t)
+    #        elist.append(matmult(a.T, z) + matmult(b.T, v))
 
-        out = trapz(elist, tlist)
-        out += matmult(dir.r(T), dir.z(T))
+    #    out = trapz(elist, tlist)
+    #    out += matmult(dir.r(T), dir.z(T))
 
-        return out
+    #    return out
     
 
 class SymSys():

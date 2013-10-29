@@ -192,8 +192,8 @@ class LQ(LQR):
      A(t), B(t) : linear system matrices
      q(t), r(t), qf : linear terms in cost function
      Q(t), S(t), R(t), Qf : quadratic model matrices
-     xa : initial condition, not needed unless want to implement
-            optimal cost later on
+     xa : initial condition, not needed unless want to also
+            return the optimal cost later on
      jumps : optional, list of pairs (t, f) at which dynamics
             switch and the jump term to be added to q(t) at that time
     """
@@ -265,95 +265,47 @@ class LQ(LQR):
             return self._Ct.C(t)
 
 
-class DescentDir(LQR):
+class DescentDirection(object):
+# implements a descent direction, given a quadratic model
+# see section 6.3.2 of Elliot Johnson's thesis
 
-    def __init__(self, traj, ref, cost=None, **kwargs):
-        # not passing R and Q to LQR, getting set to
-        # identity by default
-        LQR.__init__(self, traj.A, traj.B, **kwargs)
 
-        self._cost = cost
-        self.traj = traj
-        self.ref = ref
-        tf = self.tf
-        P1 = cost.PT
-        self.rf = np.dot(P1, self.traj.x(tf) - self.ref.x(tf))
-        self.a = lambda t: np.dot(cost.Q(t), self.traj.x(t) - self.ref.x(t))
-        self.b = lambda t: np.dot(cost.R(t), self.traj.u(t) - self.ref.u(t))
-
-        self.r = self.rsolve()
-
-        if 'z0' in kwargs.keys():
-            self.z0 = kwargs['z0']
-        else:
-            # self.z0 = -np.dot(inv(self.P(0)), self.r(0))
-            self.z0 = np.zeros(self.n)
-
-        self.direction = self.solve(self.z0)
-
-        self.z = self.direction.z
-        self.v = self.direction.v
-        self._z = self.direction._z
-        self._v = self.direction._v
-        self._t = self.direction._t
-        self.tmin = self.direction.tmin
-        self.tmax = self.direction.tmax
-
-    def rsolve(self):
-        def rdot(s, r):
-            t = -s
+    def _xdot(t, x):
+            u = self._controller(t, x)
             A = self.A(t)
             B = self.B(t)
-            Rinv = inv(self.R(t))
-            P = self.P(t)
-            b = self.b(t)
-            a = self.a(t)
-            out = np.dot((A - matmult(B, Rinv, B.T, P)).T, r)
-            out += a - matmult(P, B, Rinv, b)
-            # two minus signs make a plus below (one from equation
-            # and one from backwards integration)
-            return out
+            return matmult(A, x) + matmult(B, u)
+    
+    def _solve(self):
+        n, m = self.dims
 
-        # leaving this here until I change sysIntegrate to handle
-        # backwards integration
-        solver = ode(rdot)
-        solver.set_integrator('vode', max_step=1e-1, min_step=1e-13)
-        solver.set_initial_value(self.rf, -self.tf)
-        t = [-self.tf]
-        r = [self.rf]
+        # make a zero trajectory
+        zeroRef = Trajectory('x', 'u')
+        zeroRef.addpoint(self.ta, x=np.zeros(n), u=np.zeros(m))
+        zeroRef.addpoint(self.tb, x=np.zeros(n), u=np.zeris(m))
+        zeroRef.interpolate()
 
-        while solver.successful() and solver.t < self.t0:
-            solver.integrate(self.t0, step=True)
-            r.append(solver.y)
-            t.append(-solver.t)
+        self._controler = Controller(reference=zeroRef, \
+                                     K = self.lq.K, C = self.lq.C)
 
-        rtraj = Trajectory('r')
-        for tt, rr in zip(t, r):
-            rtraj.addpoint(tt, r=rr)
-        rtraj.interpolate()
 
-        return rtraj.r
+        (t, x) = sysIntegrate(self._xdot, self.dx0, tlims=self.tlims)
+        tj = Trajectory('x', 'u')
+        for (tt, xx) in zip(t, x):
+            tj.addpoint(tt, x=xx, u=self._controller(tt, xx))
+        tj.interpolate()
+        self._direction = tj
 
-    def solve(self, z0):
-        def v(t, z):
-            Ri = inv(self.R(t))
-            b = self.b(t)
-            P = self.P(t)
-            r = self.r(t)
-            B = self.B(t)
-            return -np.dot(Ri, b + matmult(B.T, P, z) + np.dot(B.T, r))
+        return tj
 
-        def zdot(t, z):
-            return np.dot(self.A(t), z) + np.dot(self.B(t), v(t, z))
-
-        (t, z) = sysIntegrate(zdot, z0, tlimits=self.tlims)
-        lintraj = Trajectory('z', 'v')
-        for (tt, zz) in zip(t, z):
-            lintraj.addpoint(tt, z=zz, v=v(tt, zz))
-        lintraj.interpolate()
-
-        return lintraj
-
+    @property
+    def direction(self):
+        if hasattr(self, '_direction'):
+            return self._direction
+        else:
+            return self._solve()
+    
+    """
     @property
     def cost(self):
         elist = []
@@ -368,13 +320,30 @@ class DescentDir(LQR):
             self.z(T), self._cost.PT, self.z(T))
 
         return out
+    """
 
-    def __rmul__(self, scalar):
-        # should only be called for a descent direction
-        # which only has z and v components
-        out = Trajectory('z', 'v')
-        for (t, z, v) in zip(self._t, self._z, self._v):
-            out.addpoint(t, z=scalar * z, v=scalar * v)
+class GradDirection(DescentDirection):
+    def __init__(self, tlims, A, B, **kwargs):
+        self.tlims = tlims
+        self.ta, self.tb = self.tlims
 
-        out.interpolate()
-        return out
+        self.dims = DimExtract(A(ta), B(ta))
+        n, m = self.dims
+
+        self.A, self.B = A, B
+
+        self.q = kwargs['q']
+        self.r = kwargs['r']
+        self.qf = wkargs['qf']
+
+        # set initial condition to zero if nothing is passed
+        self.dx0 = kwargs['dx0'] if 'dx0' in kwargs.keys() else np.zeros(n)
+
+        self.lq = LQ(tlims, A, B, **kwargs)
+        # don't need to set R, Q, Qf, S because set to I
+        # and 0 by default
+
+
+
+       
+

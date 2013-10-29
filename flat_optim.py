@@ -122,6 +122,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time']
 
     tlims = (0, 5)
+    ta, tb = tlims
 
     """
     t = np.linspace(0, 10, 100)
@@ -177,12 +178,17 @@ if __name__ == "__main__":
             trajectories.append(tj)
 
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
-            descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
+            q = lambda t: matmult(tj.x(t)-ref.x(t), Qcost)
+            r = lambda t: matmult(tj.u(t)-ref.u(t), Rcost)
+            qf = matmult(tj.x(tb)-ref.x(tb), PTcost)
+
+            descdir = GradDirection(tlims, tj.A, tj.B, jumps=jumps,
+                                   q=q, r=r, qf=qf)
 
             costs.append(cost(tj))
             print("cost of trajectory before descent: %f" % costs[-1])
 
-            ddircost = descdir.cost
+            ddircost = cost(descdir.direction)
             gradcosts.append(ddircost)
             print("cost of descent direction: %f" % ddircost)
 
@@ -195,8 +201,8 @@ if __name__ == "__main__":
                 if index is not 1:
                     costs.append(cost(tj))
                     print("cost of trajectory before descent: %f" % costs[-1])
-
-                    ddircost = descdir.cost
+                    
+                    ddircost = cost(descdir.direction)
                     gradcosts.append(ddircost)
                     print("cost of descent direction: %f" % ddircost)
 
@@ -206,10 +212,10 @@ if __name__ == "__main__":
                     alpha = ls.gamma * 2
                 ls = LineSearch(cost, cost.grad, alpha=alpha, beta=1e-8)
                 ls.x = tj
-                ls.p = descdir
+                ls.p = descdir.direction
                 ls.search()
 
-                tj = tj + ls.gamma * descdir
+                tj = tj + ls.gamma * descdir.direction
                 # print("cost of trajectory after descent: %f" % cost(tj))
 
             with Timer("second projection"):
@@ -217,7 +223,12 @@ if __name__ == "__main__":
                 trajectories.append(tj)
 
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
-            descdir = DescentDir(tj, ref, tlims=tlims, cost=cost)
+            q = lambda t: matmult(tj.x(t)-ref.x(t), Qcost)
+            r = lambda t: matmult(tj.u(t)-ref.u(t), Rcost)
+            qf = matmult(tj.x(tb)-ref.x(tb), PTcost)
+
+            descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
+                                   q=q, r=r, qf=qf)
 
 
     # tjt = tj
