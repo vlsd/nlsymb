@@ -130,6 +130,7 @@ class Controller():
         self.ref = kwargs['reference']
         self.n = len(self.ref._x[0])
         self.m = len(self.ref._u[0])
+        m, n = self.m, self.n
         self.C = kwargs['C'] if 'C' in kwargs.keys() else np.zeros(m)
         if 'K' in kwargs.keys():
             self.K = kwargs['K']

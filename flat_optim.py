@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 'scipy.interpolate', 'nlsymb.sympy', 'nlsymb.numpy',
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time']
 
-    tlims = (0, 5)
+    tlims = (0, 2)
     ta, tb = tlims
 
     """
