@@ -171,14 +171,14 @@ class Timer():
 
 def sysIntegrate(func, init,
                  control=None, phi=None, debug=False,
-                 tlimits=(0, 10), jac=None, method='bdf'):
+                 tlims=(0, 10), jac=None, method='bdf'):
     # func(t, x, u) returns xdot
     # control is parameter that gets passed to func, representing
     # a controller
     # phi(x) returns the distance to the switching plane if any
-    # init is the initial value of x at tlimits[0]
+    # init is the initial value of x at tlims[0]
 
-    ti, tf = tlimits
+    ti, tf = tlims
     t, x = ([ti], [init])
 
     solver = ode(func, jac)
@@ -192,6 +192,7 @@ def sysIntegrate(func, init,
 
     dim = len(init)
 
+    jumps = []
     while solver.successful() and solver.t < tf:
         solver.integrate(tf, relax=True, step=True)
         x.append(solver.y)
@@ -201,14 +202,17 @@ def sysIntegrate(func, init,
             if dp*dn < 0:               # if a crossing occured
                 # use interpolation (linear) to find the time
                 # and config at the jump
-                # TODO do a line search instead scipy.optimize.brentq()
+                # TODO do a line search instead: scipy.optimize.brentq()
                 alpha = dp/(dn-dp)
                 tcross = t[-2] - alpha*(t[-1] - t[-2])
                 xcross = x[-2] - alpha*(x[-1] - x[-2])
 
                 # replace the wrong values
                 t[-1], x[-1] = (tcross, xcross)
-
+                
+                # create jump term
+                jumps.append((tcross, func(tcross, xcross)-func(t[-2],x[-2])))
+                
                 # reset integration
                 solver.set_initial_value(xcross, tcross)
                 if debug:
@@ -218,7 +222,7 @@ def sysIntegrate(func, init,
     #xf = x[-2] + (tf - t[-2])*(x[-1] - x[-2])/(t[-1] - t[-2])
     #x[-1] = xf
     #t[-1] = tf
-    return (t[:-1], x[:-1])
+    return (t[:-1], x[:-1], jumps)
 
 
 # a wrapper around interp1d that also extrapolates

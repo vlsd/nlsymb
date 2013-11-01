@@ -56,7 +56,7 @@ class CARE(object):
         if hasattr(self, '_P'):
             return self._P
         else:
-            return self.solve()
+            return self._solve()
 
 
 class CDRE(object):
@@ -65,6 +65,7 @@ class CDRE(object):
     def __init__(self, tlims, A, B, **kwargs):
         self.tlims = tlims
         self.ta, self.tb = self.tlims
+        ta, tb = tlims
 
         self.dims = DimExtract(A(ta), B(ta))
         n, m = self.dims
@@ -72,14 +73,14 @@ class CDRE(object):
         self.A, self.B = A, B
 
         # get R and Q and Pb from qwargs
-        self.Q = kwargs['Q'] if 'Q' in kwargs.keys() \
+        self.Q = kwargs['Q'] if 'Q' in kwargs \
             else lambda t: np.eye(n)
-        self.R = kwargs['R'] if 'R' in kwargs.keys() \
+        self.R = kwargs['R'] if 'R' in kwargs \
             else lambda t: np.eye(m)
 
         # if Pb is not given get it from solving
         # a CARE at the final time
-        if 'Pb' in kwargs.keys():
+        if 'Pb' in kwargs:
             self.Pb = kwargs['Pb']
         else:
             care = CARE(self.A(tb), self.B(tb),
@@ -91,9 +92,10 @@ class CDRE(object):
     def _Pdot(self, s, P):
         A, B = self.A(-s), self.B(-s)
         R, Q = self.R(-s), self.Q(-s)
+        n, m = self.dims
 
         # rebuild the matrix from the array
-        P = P.reshape((self.n, self.n))
+        P = P.reshape((n, n))
         # do necessary matrix algebra
         Pd = matmult(P, B, inv(R), B.T, P) \
             - matmult(A.T, P) - matmult(P, A) - Q
@@ -101,45 +103,29 @@ class CDRE(object):
         return -Pd.ravel()
 
     def _solve(self, **kwargs):
-        sa, sb = -(self.ta, self.tb)
+        n, m = self.dims
+
+        sa, sb = (-self.ta, -self.tb)
         solver = ode(self.Pdot)
         solver.set_integrator('vode', **kwargs)
         solver.set_initial_value(self.Pb.ravel(), sb)
 
-        self._Pt = Trajectory('P')
-        self._Pt.addpoint(-sb, P=Pb)
+        self._Ptj = Trajectory('P')
+        self._Ptj.addpoint(-sb, P=self.Pb)
 
         while solver.successful() and solver.t < sa:
             solver.integrate(sa, step=True)
-            self.Ptraj.addpoint(-solver.t, solver.y.reshape((n, n)))
+            self._Ptj.addpoint(-solver.t, P=solver.y.reshape((n, n)))
 
-        self._Pt.interpolate()
-        return self._Pt
+        self._Ptj.interpolate()
+        return self._Ptj
 
     def P(self, t):
-        if hasattr(self, '_Pt'):
-            return self._Pt.P(t)
+        if hasattr(self, '_Ptj'):
+            return self._Ptj.P(t)
         else:
             #                 ,here we add max_step option
-            return self.solve().P(t)
-
-
-class Controller():
-
-    def __init__(self, **kwargs):
-        self.ref = kwargs['reference']
-        self.n = len(self.ref._x[0])
-        self.m = len(self.ref._u[0])
-        m, n = self.m, self.n
-        self.C = kwargs['C'] if 'C' in kwargs.keys() else np.zeros(m)
-        if 'K' in kwargs.keys():
-            self.K = kwargs['K']
-        else:
-            self.K = np.zeros((m, n))
-
-    def __call__(self, t, x):
-        return self.ref.u(t) - \
-            matmult(self.K(t), x - self.ref.x(t)) - self.C(t)
+            return self._solve().P(t)
 
 
 class LQR(CDRE):
@@ -149,38 +135,42 @@ class LQR(CDRE):
     what we need:
      tlims = (ta, tb) : time interval
      A(t), B(t) : linear system matrices
-     xa : initial condition
+     xa : initial condition; not needed yet
      dims : optional, dimensions of state and control
      Q(t), S(t), R(t), Qf=Pb : cost function matrices
                             if not provided, default is identity
-     NOTE: S(t) not actually implemented
+     NOTE: xa, S(t) not actually implemented
     """
 
-    def __init__(self, tlims, A, B, xa, **kwargs):
-        CDRE.__init__(tlims, A, B, **kwargs)
+    def __init__(self, tlims, A, B, **kwargs):
+        super(LQR, self).__init__(tlims, A, B, **kwargs)
 
-        self.xa = xa
+        if 'xa' in kwargs:
+            self.xa = kwargs['xa']
+
         self.Qf = self.Pb
-        if 'S' in kwargs.keys():
+        if 'S' in kwargs:
             self.S = kwargs['S']
         else:
             self.S = lambda t: np.zeros((n, m))
 
+        self.K = lambda t: self._K(t)
+
     def _solve(self):
-        CDRE._solve()
+        super(LQR, self)._solve()
         self._Kt = Trajectory('K')
-        for (t, P) in zip(self._Pt._t, self._Pt._P):
+        for (t, P) in zip(self._Ptj._t, self._Ptj._P):
             K = matmult(inv(self.R(t)), self.B(t).T, P)
             self._Kt.addpoint(t, K=K)
 
         self._Kt.interpolate()
-        return self._Kt
 
-    def K(self, t):
+    def _K(self, t):
         if hasattr(self, '_Kt'):
             return self._Kt.K(t)
         else:
-            return self._solve().K(t)
+            self._solve()
+            return self._Kt.K(t)
 
 
 class LQ(LQR):
@@ -200,7 +190,7 @@ class LQ(LQR):
     """
 
     def __init__(self, tlims, A, B, **kwargs):
-        LQR.__init__(tlims, A, B, **kwargs)
+        super(LQ, self).__init__(tlims, A, B, **kwargs)
         # extra stuff
 
         self.q = kwargs['q']
@@ -209,8 +199,10 @@ class LQ(LQR):
 
         self.bdot = lambda s, b: self._bdot(s, b)
 
-        self.jumps = kwargs['jumps'] if 'jump' in kwargs.keys() else []
+        self.jumps = kwargs['jumps'] if 'jumps' in kwargs else []
         self.tjmp, self.fjmp = map(list, zip(*self.jumps))
+
+        self.C = lambda t: self._C(t) 
 
     def _bdot(self, s, b):
         A, B = self.A(-s), self.B(-s)
@@ -223,9 +215,9 @@ class LQ(LQR):
 
         return -bd  # negative for reverse integration
 
-    def _solve(self):
-        LQR._solve()
-        sa, sb = -(self.ta, self.tb)
+    def _solve(self, **kwargs):
+        super(LQ, self)._solve()
+        sa, sb = (-self.ta, -self.tb)
         solver = ode(self.bdot)
         solver.set_integrator('vode', **kwargs)
         solver.set_initial_value(self.qf, sb)
@@ -244,7 +236,7 @@ class LQ(LQR):
                 if prevtime > tj and tj > -solver.t:
                     b = b + fj * (-solver.t - prevtime)
 
-            self._bt.addpoint(-solver.t, b)
+            self._bt.addpoint(-solver.t, b=b)
 
         self._bt.interpolate()
         self.b = self._bt.b
@@ -256,14 +248,31 @@ class LQ(LQR):
             self._Ct.addpoint(t, C=C)
 
         self._Ct.interpolate()
-        return self.K, self._Ct.C
 
-    def C(self, t):
+    def _C(self, t):
         if hasattr(self, '_Ct'):
             return self._Ct.C(t)
         else:
-            self.solve()
+            self._solve()
             return self._Ct.C(t)
+
+
+class Controller(object):
+
+    def __init__(self, **kwargs):
+        self.ref = kwargs['reference']
+        self.n = len(self.ref._x[0])
+        self.m = len(self.ref._u[0])
+        m, n = self.m, self.n
+        self.C = kwargs['C'] if 'C' in kwargs else lambda t: np.zeros(m)
+        if 'K' in kwargs:
+            self.K = kwargs['K']
+        else:
+            self.K = lambda t: np.zeros((m, n))
+
+    def __call__(self, t, x):
+        return self.ref.u(t) - \
+            matmult(self.K(t), x - self.ref.x(t)) - self.C(t)
 
 
 class DescentDirection(object):
@@ -271,7 +280,7 @@ class DescentDirection(object):
 # see section 6.3.2 of Elliot Johnson's thesis
 
 
-    def _xdot(t, x):
+    def _xdot(self, t, x):
             u = self._controller(t, x)
             A = self.A(t)
             B = self.B(t)
@@ -283,28 +292,28 @@ class DescentDirection(object):
         # make a zero trajectory
         zeroRef = Trajectory('x', 'u')
         zeroRef.addpoint(self.ta, x=np.zeros(n), u=np.zeros(m))
-        zeroRef.addpoint(self.tb, x=np.zeros(n), u=np.zeris(m))
+        zeroRef.addpoint(self.tb, x=np.zeros(n), u=np.zeros(m))
         zeroRef.interpolate()
 
-        self._controler = Controller(reference=zeroRef, \
+        self._controller = Controller(reference=zeroRef, \
                                      K = self.lq.K, C = self.lq.C)
 
 
-        (t, x) = sysIntegrate(self._xdot, self.dx0, tlims=self.tlims)
+        xdot = lambda t, x: self._xdot(t, x)
+        (t, x, jumps) = sysIntegrate(xdot, self.dx0, tlims=self.tlims)
         tj = Trajectory('x', 'u')
         for (tt, xx) in zip(t, x):
             tj.addpoint(tt, x=xx, u=self._controller(tt, xx))
         tj.interpolate()
         self._direction = tj
 
-        return tj
-
     @property
     def direction(self):
         if hasattr(self, '_direction'):
             return self._direction
         else:
-            return self._solve()
+            self._solve()
+            return self._direction
     
     """
     @property
@@ -327,6 +336,7 @@ class GradDirection(DescentDirection):
     def __init__(self, tlims, A, B, **kwargs):
         self.tlims = tlims
         self.ta, self.tb = self.tlims
+        ta, tb = tlims
 
         self.dims = DimExtract(A(ta), B(ta))
         n, m = self.dims
@@ -335,10 +345,10 @@ class GradDirection(DescentDirection):
 
         self.q = kwargs['q']
         self.r = kwargs['r']
-        self.qf = wkargs['qf']
+        self.qf = kwargs['qf']
 
         # set initial condition to zero if nothing is passed
-        self.dx0 = kwargs['dx0'] if 'dx0' in kwargs.keys() else np.zeros(n)
+        self.dx0 = kwargs['dx0'] if 'dx0' in kwargs else np.zeros(n)
 
         self.lq = LQ(tlims, A, B, **kwargs)
         # don't need to set R, Q, Qf, S because set to I

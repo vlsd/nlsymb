@@ -119,7 +119,8 @@ if __name__ == "__main__":
                 '__builtin__', '__main__', 'numpy', 'scipy',
                 'matplotlib', 'os.path', 'sympy', 'scipy.integrate',
                 'scipy.interpolate', 'nlsymb.sympy', 'nlsymb.numpy',
-                'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time']
+                'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
+                'scipy.linalg', 'numpy.linalg']
 
     tlims = (0, 2)
     ta, tb = tlims
@@ -165,7 +166,7 @@ if __name__ == "__main__":
         Rcost = lambda t: np.diag([10, 10])
         Qcost = lambda t: np.diag([100, 100, 1, 1])
 
-        PTcost = Qcost(2)
+        PTcost = Qcost(tb)
 
         # zerocontrol = Controller(reference=ref)
         # nlsys.set_u(zerocontrol)
@@ -178,11 +179,11 @@ if __name__ == "__main__":
             trajectories.append(tj)
 
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
-            q = lambda t: matmult(tj.x(t)-ref.x(t), Qcost)
-            r = lambda t: matmult(tj.u(t)-ref.u(t), Rcost)
+            q = lambda t: matmult(tj.x(t)-ref.x(t), Qcost(t))
+            r = lambda t: matmult(tj.u(t)-ref.u(t), Rcost(t))
             qf = matmult(tj.x(tb)-ref.x(tb), PTcost)
 
-            descdir = GradDirection(tlims, tj.A, tj.B, jumps=jumps,
+            descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
                                    q=q, r=r, qf=qf)
 
             costs.append(cost(tj))
@@ -223,8 +224,8 @@ if __name__ == "__main__":
                 trajectories.append(tj)
 
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
-            q = lambda t: matmult(tj.x(t)-ref.x(t), Qcost)
-            r = lambda t: matmult(tj.u(t)-ref.u(t), Rcost)
+            q = lambda t: matmult(tj.x(t)-ref.x(t), Qcost(t))
+            r = lambda t: matmult(tj.u(t)-ref.u(t), Rcost(t))
             qf = matmult(tj.x(tb)-ref.x(tb), PTcost)
 
             descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,

@@ -78,7 +78,7 @@ class System():
 
         jac = dfdx if use_jac else None
 
-        (t, x) = sysIntegrate(func, self.xinit, tlimits=self.tlims,
+        (t, x, jumps) = sysIntegrate(func, self.xinit, tlims=self.tlims,
                               phi=self.phi, jac=jac)
 
         components = ['x']
@@ -90,31 +90,29 @@ class System():
 
         traj = Trajectory(*components)
         for (tt, xx) in zip(t, x):
-            dict = {'x': xx}
+            names = {'x': xx}
             if 'u' in components:
-                dict['u'] = self.ufun(tt, xx)
+                names['u'] = self.ufun(tt, xx)
             if 'A' in components:
-                dict['A'] = dfdx(tt, xx)
+                names['A'] = dfdx(tt, xx)
             if 'B' in components:
-                dict['B'] = dfdu(tt, xx)
+                names['B'] = dfdu(tt, xx)
 
-            traj.addpoint(tt, **dict)
+            traj.addpoint(tt, **names)
 
         # interpolate, unless requested; 
         # saves a few manual calls
         if interp:
             traj.interpolate()
-        else:
-            pass
 
         if lin:
             print("linearizing...")
             self.lintraj = traj
-            self.regulator = LQR(traj.A, traj.B, 
-                                 tlims=self.tlims)
+            self.regulator = LQR(self.tlims, traj.A, traj.B)
 
         traj.feasible = True
         traj.tlims = self.tlims
+        traj.jumps = jumps
         return traj
     
 
@@ -144,8 +142,7 @@ class System():
             self.set_u(control)
             nutraj = self.integrate(linearize=True)
 
-            return self.project(nutraj, tlims=tlims, 
-                                lin=lin)
+            return self.project(nutraj, tlims=tlims, lin=lin)
 
 class CostFunction():
     def __init__(self, dimx, dimu, ref,
