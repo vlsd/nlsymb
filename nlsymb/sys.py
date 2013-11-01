@@ -109,6 +109,7 @@ class System():
             print("linearizing...")
             self.lintraj = traj
             self.regulator = LQR(self.tlims, traj.A, traj.B)
+            self.regulator.solve()
 
         traj.feasible = True
         traj.tlims = self.tlims
@@ -155,8 +156,8 @@ class CostFunction():
         self.PT = PT
         self.projector = (lambda x: x) if projector is None else projector
 
-    def __call__(self, traj):
-        tj = self.projector(traj)
+    def __call__(self, traj, project=True):
+        tj = self.projector(traj) if project else traj
         T = tj.tlims[1]
 
         tlist = tj._t

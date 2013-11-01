@@ -37,7 +37,7 @@ class CARE(object):
         self.R = np.array(kwargs['R']) if 'R' in keys \
             else np.eye(self.n)
 
-    def _solve(self):
+    def solve(self, **kwargs):
         BRB = matmult(self.B, inv(self.R), self.B.T)
         M = np.vstack([
             np.hstack([self.A, -BRB]),
@@ -46,17 +46,8 @@ class CARE(object):
         (L, Z, sdim) = schur(M, sort='lhp')
         U = Z.T
 
-        self._P = matmult(inv(U[0:sdim, 0:sdim]),
-                          U[0:sdim, sdim:]).conj().T
-
-        return self._P
-
-    @property
-    def P(self):
-        if hasattr(self, '_P'):
-            return self._P
-        else:
-            return self._solve()
+        self.P = matmult(inv(U[0:sdim, 0:sdim]),
+                          U[0:sdim, sdim:]).conj().T 
 
 
 class CDRE(object):
@@ -83,11 +74,11 @@ class CDRE(object):
         if 'Pb' in kwargs:
             self.Pb = kwargs['Pb']
         else:
-            care = CARE(self.A(tb), self.B(tb),
-                        R=self.R(tb), Q=self.Q(tb))
+            # obtain P from an algebraic ricatti at tb
+            care = CARE(self.A(tb), self.B(tb), R=self.R(tb),
+                        Q=self.Q(tb))
+            care.solve()
             self.Pb = care.P
-
-        self.Pdot = lambda s, P: self._Pdot(s, P)
 
     def _Pdot(self, s, P):
         A, B = self.A(-s), self.B(-s)
@@ -102,11 +93,13 @@ class CDRE(object):
         # ravel and multiply by -1 (for backwards integration)
         return -Pd.ravel()
 
-    def _solve(self, **kwargs):
+    def solve(self, **kwargs):
         n, m = self.dims
-
         sa, sb = (-self.ta, -self.tb)
-        solver = ode(self.Pdot)
+        
+        Pdot = lambda s, P: self._Pdot(s, P)
+        solver = ode(Pdot)
+        
         solver.set_integrator('vode', **kwargs)
         solver.set_initial_value(self.Pb.ravel(), sb)
 
@@ -118,14 +111,7 @@ class CDRE(object):
             self._Ptj.addpoint(-solver.t, P=solver.y.reshape((n, n)))
 
         self._Ptj.interpolate()
-        return self._Ptj
-
-    def P(self, t):
-        if hasattr(self, '_Ptj'):
-            return self._Ptj.P(t)
-        else:
-            #                 ,here we add max_step option
-            return self._solve().P(t)
+        self.P = lambda t: self._Ptj.P(t)
 
 
 class LQR(CDRE):
@@ -154,23 +140,17 @@ class LQR(CDRE):
         else:
             self.S = lambda t: np.zeros((n, m))
 
-        self.K = lambda t: self._K(t)
 
-    def _solve(self):
-        super(LQR, self)._solve()
+    def solve(self, **kwargs):
+        super(LQR, self).solve()
         self._Kt = Trajectory('K')
         for (t, P) in zip(self._Ptj._t, self._Ptj._P):
             K = matmult(inv(self.R(t)), self.B(t).T, P)
             self._Kt.addpoint(t, K=K)
 
         self._Kt.interpolate()
+        self.K = lambda t: self._Kt.K(t)
 
-    def _K(self, t):
-        if hasattr(self, '_Kt'):
-            return self._Kt.K(t)
-        else:
-            self._solve()
-            return self._Kt.K(t)
 
 
 class LQ(LQR):
@@ -202,7 +182,6 @@ class LQ(LQR):
         self.jumps = kwargs['jumps'] if 'jumps' in kwargs else []
         self.tjmp, self.fjmp = map(list, zip(*self.jumps))
 
-        self.C = lambda t: self._C(t) 
 
     def _bdot(self, s, b):
         A, B = self.A(-s), self.B(-s)
@@ -215,8 +194,8 @@ class LQ(LQR):
 
         return -bd  # negative for reverse integration
 
-    def _solve(self, **kwargs):
-        super(LQ, self)._solve()
+    def solve(self, **kwargs):
+        super(LQ, self).solve()
         sa, sb = (-self.ta, -self.tb)
         solver = ode(self.bdot)
         solver.set_integrator('vode', **kwargs)
@@ -248,13 +227,7 @@ class LQ(LQR):
             self._Ct.addpoint(t, C=C)
 
         self._Ct.interpolate()
-
-    def _C(self, t):
-        if hasattr(self, '_Ct'):
-            return self._Ct.C(t)
-        else:
-            self._solve()
-            return self._Ct.C(t)
+        self.C = lambda t: self._Ct.C(t) 
 
 
 class Controller(object):
@@ -286,7 +259,7 @@ class DescentDirection(object):
             B = self.B(t)
             return matmult(A, x) + matmult(B, u)
     
-    def _solve(self):
+    def solve(self, **kwargs):
         n, m = self.dims
 
         # make a zero trajectory
@@ -305,32 +278,9 @@ class DescentDirection(object):
         for (tt, xx) in zip(t, x):
             tj.addpoint(tt, x=xx, u=self._controller(tt, xx))
         tj.interpolate()
-        self._direction = tj
+        tj.tlims = self.tlims
+        self.direction = tj
 
-    @property
-    def direction(self):
-        if hasattr(self, '_direction'):
-            return self._direction
-        else:
-            self._solve()
-            return self._direction
-    
-    """
-    @property
-    def cost(self):
-        elist = []
-        tlist = self._t
-        T = self.tmax
-        for (t, z, v) in zip(tlist, self._z, self._v):
-            expr = matmult(z, self._cost.Q(t), z) + \
-                matmult(v, self._cost.R(t), v)
-            elist.append(expr)
-
-        out = trapz(elist, tlist) + matmult(
-            self.z(T), self._cost.PT, self.z(T))
-
-        return out
-    """
 
 class GradDirection(DescentDirection):
     def __init__(self, tlims, A, B, **kwargs):
@@ -351,6 +301,7 @@ class GradDirection(DescentDirection):
         self.dx0 = kwargs['dx0'] if 'dx0' in kwargs else np.zeros(n)
 
         self.lq = LQ(tlims, A, B, **kwargs)
+        self.lq.solve()
         # don't need to set R, Q, Qf, S because set to I
         # and 0 by default
 

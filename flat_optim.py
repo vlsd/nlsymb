@@ -184,12 +184,14 @@ if __name__ == "__main__":
             qf = matmult(tj.x(tb)-ref.x(tb), PTcost)
 
             descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
-                                   q=q, r=r, qf=qf)
+                                    q=q, r=r, qf=qf)
+            descdir.solve()
 
             costs.append(cost(tj))
             print("cost of trajectory before descent: %f" % costs[-1])
 
-            ddircost = cost(descdir.direction)
+            ddir = descdir.direction
+            ddircost = cost(ddir, project=False)
             gradcosts.append(ddircost)
             print("cost of descent direction: %f" % ddircost)
 
@@ -203,7 +205,8 @@ if __name__ == "__main__":
                     costs.append(cost(tj))
                     print("cost of trajectory before descent: %f" % costs[-1])
                     
-                    ddircost = cost(descdir.direction)
+                    ddir = descdir.direction
+                    ddircost = cost(ddir)
                     gradcosts.append(ddircost)
                     print("cost of descent direction: %f" % ddircost)
 
@@ -229,7 +232,8 @@ if __name__ == "__main__":
             qf = matmult(tj.x(tb)-ref.x(tb), PTcost)
 
             descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
-                                   q=q, r=r, qf=qf)
+                                    q=q, r=r, qf=qf)
+            descdir.solve()
 
 
     # tjt = tj

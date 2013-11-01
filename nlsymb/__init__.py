@@ -41,7 +41,7 @@ class Trajectory():
     #        return func(t)
 
     def addpoint(self, t, **kwargs):
-        # keyword arguments in the form x=val
+        # keyword arguments in the foysm x=val
         if self._t is []:
             self.tmax = t
             self.tmin = t
@@ -89,7 +89,8 @@ class Trajectory():
                  if k[0] is '_' and k[1:] is not 't'}
         out = Trajectory(*names)
         for t in self._t:
-            out.addpoint(t, **{n : scalar * getattr(self, n)(t)})
+            out.addpoint(t, **{n : (scalar * getattr(self, n)(t))
+                               for n in names})
 
         out.interpolate()
         out.feasible=False
@@ -211,7 +212,7 @@ def sysIntegrate(func, init,
                 t[-1], x[-1] = (tcross, xcross)
                 
                 # create jump term
-                jumps.append((tcross, func(tcross, xcross)-func(t[-2],x[-2])))
+                jumps.append((tcross, -func(tcross, xcross)+func(t[-2],x[-2])))
                 
                 # reset integration
                 solver.set_initial_value(xcross, tcross)
