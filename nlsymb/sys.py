@@ -11,8 +11,10 @@ from timeout import timeout
 
 
 class System():
+
     """
     a collection of callables, mostly """
+
     def __init__(self, func, tlims=(0, 10), **kwargs):
         # TODO add an option to pass a symSystem directly
         # skipping a bunch of middleman bullshit that might
@@ -42,7 +44,7 @@ class System():
 
     # to be called after a reference has been set
     def build_cost(self, **kwargs):
-        self.cost = CostFunction(self.dim, self.dimu, self.ref, 
+        self.cost = CostFunction(self.dim, self.dimu, self.ref,
                                  projector=self.project, **kwargs)
         return self.cost
 
@@ -61,7 +63,7 @@ class System():
     # or not, and controlled or not; first, though, get it working with
     # everything on
     def integrate(self, use_jac=False, linearize=True,
-                  interpolate=True,**kwargs):
+                  interpolate=True, **kwargs):
         keys = kwargs.keys()
         xinit = kwargs['xinit'] if 'xinit' in keys else self.xinit
         lin = linearize
@@ -79,7 +81,7 @@ class System():
         jac = dfdx if use_jac else None
 
         (t, x, jumps) = sysIntegrate(func, self.xinit, tlims=self.tlims,
-                              phi=self.phi, jac=jac)
+                                     phi=self.phi, jac=jac)
 
         components = ['x']
         if 'ufun' in self.__dict__.keys():
@@ -100,7 +102,7 @@ class System():
 
             traj.addpoint(tt, **names)
 
-        # interpolate, unless requested; 
+        # interpolate, unless requested;
         # saves a few manual calls
         if interp:
             traj.interpolate()
@@ -115,7 +117,6 @@ class System():
         traj.tlims = self.tlims
         traj.jumps = jumps
         return traj
-    
 
     @timeout(30)
     def project(self, traj, tlims=None, lin=False):
@@ -128,24 +129,26 @@ class System():
         self.xinit = traj.x(tlims[0])
 
         if 'regulator' in self.__dict__.keys():
-            #print("regular projection")
+            # print("regular projection")
             ltj = self.lintraj
             reg = self.regulator
             control = Controller(reference=traj, K=reg.K)
 
             self.set_u(control)
-            #print(lin)
+            # print(lin)
             return self.integrate(linearize=lin)
         else:
             print("integrating and linearizing for the first time")
             control = Controller(reference=traj)
-            
+
             self.set_u(control)
             nutraj = self.integrate(linearize=True)
 
             return self.project(nutraj, tlims=tlims, lin=lin)
 
+
 class CostFunction():
+
     def __init__(self, dimx, dimu, ref,
                  R=None, Q=None, PT=None, projector=None):
         self.dimx = dimx
@@ -167,38 +170,23 @@ class CostFunction():
             ud = self.ref.u(t)
             Q = self.Q(t)
             R = self.R(t)
-            expr = matmult(x-xd, Q, x-xd) + matmult(u-ud, R, u-ud)
+            expr = matmult(x - xd, Q, x - xd) + matmult(u - ud, R, u - ud)
             elist.append(expr)
 
         # integrate the above
         out = 0.5 * trapz(elist, tlist)
-        out += 0.5 * matmult(tj.x(T)-self.ref.x(T), self.PT,
-                             tj.x(T)-self.ref.x(T))
+        out += 0.5 * matmult(tj.x(T) - self.ref.x(T), self.PT,
+                             tj.x(T) - self.ref.x(T))
         return out
 
     def grad(self, traj, dir):
         # this shouldn't be needed
         pass
-    #    #tj = self.project(traj)
-    #    
-    #    T = dir.tmax
 
-    #    tlist = dir._t
-    #    elist = []
-    #    for (t, z, v) in zip(tlist, dir._z, dir._v):
-    #        a = dir.a(t)
-    #        b = dir.b(t)
-    #        elist.append(matmult(a.T, z) + matmult(b.T, v))
-
-    #    out = trapz(elist, tlist)
-    #    out += matmult(dir.r(T), dir.z(T))
-
-    #    return out
-    
 
 class SymSys():
     # a representation of a hybrid/impulsive system
-    # too much is hardcoded, but those functions had to go *somewhere*
+    # TODO: too much is hardcoded, but those functions had to go *somewhere*
     dim = 2
 
     t = S('t')
@@ -256,11 +244,11 @@ class SymSys():
 
     # M as a function of z
     def _buildMq(self):
-        return np.eye(self.dim)*self.m
+        return np.eye(self.dim) * self.m
 
     # M inverse
     def _buildMqi(self):
-        return np.eye(self.dim)/self.m
+        return np.eye(self.dim) / self.m
 
     # Mzar as a function of z
     def _buildMz(self):
@@ -291,11 +279,11 @@ class SymSys():
                                      - tn.einsum(
                                          'i,ijk,k', zdot, self.dMz, zdot)
                                      + tn.einsum(
-                                         'i,ikl,k', zdot, self.dMz, zdot)/2
-                                     + self.dVz) \
-                              + matmult(\
+                                         'i,ikl,k', zdot, self.dMz, zdot) / 2
+                                     + self.dVz)
+                              + matmult(
                                   tn.subs(self._dPsi, self.qtoz),
-                                  self.Mqi, # here we might need subs
+                                  self.Mqi,  # here we might need subs
                                   self.u)
                               ))
 
@@ -310,13 +298,12 @@ class SymSys():
         zzdot = np.dot(self._dP, zdot)
 
         out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
-            + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot)/2
+            + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot) / 2
         out = np.dot(self.Mzzi, out + self.dVzz)
         out = out - tn.einsum('ijk,j,k',
-                                  tn.diff(self._dP, self.z), zdot, zdot)
-        out = out + matmult(OhmI,
-                            self.Mqi, # in general, there should be a subs here
-                            self.u)
+                              tn.diff(self._dP, self.z), zdot, zdot)
+        out = out + matmult(OhmI, self.Mqi, self.u)
+                            # in general, there should be a subs here
         out = matmult(self._dPi, out)
         out = np.concatenate((zdot, out))
 
@@ -333,7 +320,7 @@ class SymSys():
         out[si] = -zs
         for i in range(len(z)):
             if i != si:
-                out[i] = z[i] - self.delta[i]*2*zs/(1+k*zs**2)
+                out[i] = z[i] - self.delta[i] * 2 * zs / (1 + k * zs ** 2)
 
         return np.array(out)
 
@@ -342,7 +329,7 @@ class SymSys():
     def feedback(self, t, K, traj):
         mu = traj.u(t)
         alpha = traj.x(t)
-        u = mu + np.dot(K, alpha-self.x)
+        u = mu + np.dot(K, alpha - self.x)
         return {self.u[i]: u[i] for i in range(u)}
 
     # can i conflate these three functions into one somehow?
@@ -393,7 +380,17 @@ class SymSys():
         return tn.eval(self._dP, self.z, zval)
 
     def phi(self, xval):
-        return xval[1]
+        return xval[self.si]
+
+    def _delf(self, t, xval):
+        # calculates the jump term assuming the field switches
+        # between fplus and fminus at (t, x)
+        fdiff = self._fplus.func(t, xval) - self._fmius.func(t, xval)
+        dphi = np.zeros(len(xval))
+        dphi[self.si] = 1
+        # this assumes x = [z, zdot]
+        out = np.outer(-fdiff, dphi)/xval[2*self.si]
+        return out
 
     def __init__(self, si=1, k=50.0, m=1.0, g=9.8):
         self.si = si
@@ -411,7 +408,7 @@ class SymSys():
         self.dMz = tn.diff(self.Mz, self.z)
 
         self.delta = self.Mzi[:, self.si] / self.Mzi[self.si, self.si]
-        #self.ddelta = tn.diff(self.delta, self.z)
+        # self.ddelta = tn.diff(self.delta, self.z)
 
         self.Vz = self._build_Vz()
         self.dVz = tn.diff(self.Vz, self.z)
@@ -445,6 +442,7 @@ class SymSys():
         self.controller = lambda t, x: [0, 0]
         self._ohm = tn.lambdify(self.z, self._Ohm)
         self._psi = tn.lambdify(self.q, self._Psi)
+        self.delf = lambda t, x: self._delf(t, x)
 
 
 if __name__ == "__main__":

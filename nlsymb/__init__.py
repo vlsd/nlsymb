@@ -8,6 +8,8 @@ from copy import deepcopy
 from timeout import TimeoutError
 
 # from matutils import matmult
+
+
 def matmult(*x):
     """
     Shortcut for standard matrix multiplication.
@@ -19,6 +21,7 @@ def matmult(*x):
 class Trajectory():
     # a class to represent a trajectory, takes lists of points and
     # returns interpolation objects (callables)
+
     def __init__(self, *args):
         # takes as arguments the names of the fields it stores
         for name in args:
@@ -27,10 +30,10 @@ class Trajectory():
         self.tmax = None
         self.tmin = None
         self.feasible = False
-        
-    #def __call__(self, t):
-    #    # evaluates at t if there is only one series stored
-    #    # TODO make sure this works; not really necessary now
+
+    # def __call__(self, t):
+    # evaluates at t if there is only one series stored
+    # TODO make sure this works; not really necessary now
     #    num = 0
     #    for k in self.__dict__.keys():
     #        if k[0] is not '_':
@@ -72,12 +75,12 @@ class Trajectory():
                 setattr(self, k[1:], ifunc)
 
     def __add__(self, other):
-        names = (set(self.__dict__) & set(other.__dict__)) - {'t','_t'}
+        names = (set(self.__dict__) & set(other.__dict__)) - {'t', '_t'}
         names = {k[1:] for k in names if k[0] is '_'}
         tj = Trajectory(*names)
         other.interpolate()
         for t in self._t:
-            tj.addpoint(t, **{n:(getattr(self, n)(t) + getattr(other, n)(t)) 
+            tj.addpoint(t, **{n: (getattr(self, n)(t) + getattr(other, n)(t))
                               for n in names})
         tj.interpolate()
         tj.feasible = False
@@ -85,15 +88,15 @@ class Trajectory():
 
     def __rmul__(self, scalar):
         # multiplies everything by the scalar
-        names = {k[1:] for k in self.__dict__.keys() \
+        names = {k[1:] for k in self.__dict__.keys()
                  if k[0] is '_' and k[1:] is not 't'}
         out = Trajectory(*names)
         for t in self._t:
-            out.addpoint(t, **{n : (scalar * getattr(self, n)(t))
+            out.addpoint(t, **{n: (scalar * getattr(self, n)(t))
                                for n in names})
 
         out.interpolate()
-        out.feasible=False
+        out.feasible = False
         return out
 
     """ old version of add, see above for new version
@@ -110,7 +113,7 @@ class Trajectory():
     def xtoq(self, s):
         self._q = map(s.xtopq, self._x)
         self.interpolate()
-    
+
     def xtonq(self, s):
         self._q = map(s.xtoq, self._x)
         self.interpolate()
@@ -120,12 +123,13 @@ class Trajectory():
         for k in temp.keys():
             if k[0] is '_':
                 pass
-            elif k not in ['tmin','tmax','feasible']:
+            elif k not in ['tmin', 'tmax', 'feasible']:
                 del temp[k]
         return temp
 
 
 class LineSearch():
+
     def __init__(self, func, grad, alpha=1, beta=1e-8):
         # func takes a point
         # grad takes a point and a direction
@@ -137,7 +141,7 @@ class LineSearch():
     def search(self):
         x = self.x
         p = self.p
-        #grad = self.grad(x, p)
+        # grad = self.grad(x, p)
         grad = 1
         func = self.func(x)
         gamma = self.alpha
@@ -145,34 +149,33 @@ class LineSearch():
             try:
                 if self.func(x + gamma * p) > \
                         func + self.beta * gamma * grad:
-                    gamma = gamma/2
+                    gamma = gamma / 2
                     print("decreasing gamma to %e" % gamma)
                     # this will not work with the -O flag
                     assert gamma > 1e-18, gamma
                 else:
                     break
             except TimeoutError:
-                gamma = gamma/10
+                gamma = gamma / 10
                 print("Timed out, decreasing gamma to %e" % gamma)
         self.gamma = gamma
 
 
-
 class Timer():
+
     def __init__(self, fmts=""):
         self.fmts = fmts + " took %fs to run"
-    
-    def __enter__(self): 
+
+    def __enter__(self):
         self.start = time.time()
 
     def __exit__(self, *args):
         delta = time.time() - self.start
-        print( self.fmts % delta )
+        print(self.fmts % delta)
 
 
-def sysIntegrate(func, init,
-                 control=None, phi=None, debug=False,
-                 tlims=(0, 10), jac=None, method='bdf'):
+def sysIntegrate(func, init, control=None, phi=None, debug=False, 
+                 tlims=(0, 10), jac=None, method='bdf', **kw):
     # func(t, x, u) returns xdot
     # control is parameter that gets passed to func, representing
     # a controller
@@ -193,37 +196,45 @@ def sysIntegrate(func, init,
 
     dim = len(init)
 
-    jumps = []
+    if 'delfunc' in kw:
+        jumps_out = []
+    jumps_in = kw['jumps'] if 'jumps' in kw else []
+
     while solver.successful() and solver.t < tf:
         solver.integrate(tf, relax=True, step=True)
         x.append(solver.y)
         t.append(solver.t)
         if phi:
             dp, dn = map(phi, x[-2:])   # distance prev, distance next
-            if dp*dn < 0:               # if a crossing occured
+            if dp * dn < 0:               # if a crossing occured
                 # use interpolation (linear) to find the time
                 # and config at the jump
                 # TODO do a line search instead: scipy.optimize.brentq()
-                alpha = dp/(dn-dp)
-                tcross = t[-2] - alpha*(t[-1] - t[-2])
-                xcross = x[-2] - alpha*(x[-1] - x[-2])
+                alpha = dp / (dn - dp)
+                tcross = t[-2] - alpha * (t[-1] - t[-2])
+                xcross = x[-2] - alpha * (x[-1] - x[-2])
 
                 # replace the wrong values
                 t[-1], x[-1] = (tcross, xcross)
-                
-                # create jump term
-                jumps.append((tcross, -func(tcross, xcross)+func(t[-2],x[-2])))
-                
+
+                # obtain jump term
+                if 'delfunc' in kw:
+                    jumps_out.append((tcross, 
+                                     kw['delfunc'](tcross, xcross)))
+
                 # reset integration
                 solver.set_initial_value(xcross, tcross)
                 if debug:
                     print("found intersection at t=%f" % tcross)
 
+        if jumps_in:
+            pass
+
     # make the last point be exactly at tf
-    #xf = x[-2] + (tf - t[-2])*(x[-1] - x[-2])/(t[-1] - t[-2])
-    #x[-1] = xf
-    #t[-1] = tf
-    return (t[:-1], x[:-1], jumps)
+    # xf = x[-2] + (tf - t[-2])*(x[-1] - x[-2])/(t[-1] - t[-2])
+    # x[-1] = xf
+    # t[-1] = tf
+    return (t[:-1], x[:-1], jumps_out)
 
 
 # a wrapper around interp1d that also extrapolates
@@ -234,7 +245,7 @@ class interxpolate(scipy.interpolate.interp1d):
         except ValueError as e:
             # TODO make sure this is only triggered for the
             # proper exception. Maybe use error numbers?
-            #print "WARNING: Interpolation called out of bounds, soldier!"
+            # print "WARNING: Interpolation called out of bounds, soldier!"
             xs, ys = (self.x, self.y)
             if x < xs[0]:
                 return ys[0]+(x-xs[0])*(ys[1]-ys[0])/(xs[1]-xs[0])
@@ -242,5 +253,3 @@ class interxpolate(scipy.interpolate.interp1d):
                 return ys[-1]+(x-xs[-1])*(ys[-1]-ys[-2])/(xs[-1]-xs[-2])
             else:
                 raise
-
-

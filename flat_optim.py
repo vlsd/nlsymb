@@ -143,7 +143,7 @@ if __name__ == "__main__":
         ref.interpolate()
 
         # make an initial guess trajectory
-        qinit = np.array([0.0, 5.0])
+        qinit = np.array([0.0, 1.0])
         qdoti = np.array([0.0, 0.0])
 
         xinit = np.concatenate((s.Psi(qinit),
@@ -179,9 +179,9 @@ if __name__ == "__main__":
             trajectories.append(tj)
 
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
-            q = lambda t: matmult(tj.x(t)-ref.x(t), Qcost(t))
-            r = lambda t: matmult(tj.u(t)-ref.u(t), Rcost(t))
-            qf = matmult(tj.x(tb)-ref.x(tb), PTcost)
+            q = lambda t: matmult(tj.x(t) - ref.x(t), Qcost(t))
+            r = lambda t: matmult(tj.u(t) - ref.u(t), Rcost(t))
+            qf = matmult(tj.x(tb) - ref.x(tb), PTcost)
 
             descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
                                     q=q, r=r, qf=qf)
@@ -204,9 +204,9 @@ if __name__ == "__main__":
                 if index is not 1:
                     costs.append(cost(tj))
                     print("cost of trajectory before descent: %f" % costs[-1])
-                    
+
                     ddir = descdir.direction
-                    ddircost = cost(ddir)
+                    ddircost = cost(ddir, project=False)
                     gradcosts.append(ddircost)
                     print("cost of descent direction: %f" % ddircost)
 
@@ -227,9 +227,9 @@ if __name__ == "__main__":
                 trajectories.append(tj)
 
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
-            q = lambda t: matmult(tj.x(t)-ref.x(t), Qcost(t))
-            r = lambda t: matmult(tj.u(t)-ref.u(t), Rcost(t))
-            qf = matmult(tj.x(tb)-ref.x(tb), PTcost)
+            q = lambda t: matmult(tj.x(t) - ref.x(t), Qcost(t))
+            r = lambda t: matmult(tj.u(t) - ref.u(t), Rcost(t))
+            qf = matmult(tj.x(tb) - ref.x(tb), PTcost)
 
             descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
                                     q=q, r=r, qf=qf)

@@ -47,7 +47,7 @@ class CARE(object):
         U = Z.T
 
         self.P = matmult(inv(U[0:sdim, 0:sdim]),
-                          U[0:sdim, sdim:]).conj().T 
+                         U[0:sdim, sdim:]).conj().T
 
 
 class CDRE(object):
@@ -96,10 +96,10 @@ class CDRE(object):
     def solve(self, **kwargs):
         n, m = self.dims
         sa, sb = (-self.ta, -self.tb)
-        
+
         Pdot = lambda s, P: self._Pdot(s, P)
         solver = ode(Pdot)
-        
+
         solver.set_integrator('vode', **kwargs)
         solver.set_initial_value(self.Pb.ravel(), sb)
 
@@ -140,7 +140,6 @@ class LQR(CDRE):
         else:
             self.S = lambda t: np.zeros((n, m))
 
-
     def solve(self, **kwargs):
         super(LQR, self).solve()
         self._Kt = Trajectory('K')
@@ -150,7 +149,6 @@ class LQR(CDRE):
 
         self._Kt.interpolate()
         self.K = lambda t: self._Kt.K(t)
-
 
 
 class LQ(LQR):
@@ -182,7 +180,6 @@ class LQ(LQR):
         self.jumps = kwargs['jumps'] if 'jumps' in kwargs else []
         self.tjmp, self.fjmp = map(list, zip(*self.jumps))
 
-
     def _bdot(self, s, b):
         A, B = self.A(-s), self.B(-s)
         q, r = self.q(-s), self.r(-s)
@@ -208,12 +205,13 @@ class LQ(LQR):
             solver.integrate(sa, step=True)
             b = solver.y
 
-            # find which jumps lie between this time step and the previous one
-            # add the corresponding term to b = solver.y + jumpterm
-            prevtime = np.min(self._bt._t)  # replace with call to _bt.tmin
-            for (tj, fj) in self.jumps:
-                if prevtime > tj and tj > -solver.t:
-                    b = b + fj * (-solver.t - prevtime)
+            # I wrongly added this here
+            ## find which jumps lie between this time step and the previous one
+            ## add the corresponding term to b = solver.y + jumpterm
+            #prevtime = np.min(self._bt._t)  # replace with call to _bt.tmin
+            #for (tj, fj) in self.jumps:
+            #    if prevtime > tj and tj > -solver.t:
+            #        b = b + fj * (-solver.t - prevtime)
 
             self._bt.addpoint(-solver.t, b=b)
 
@@ -227,7 +225,7 @@ class LQ(LQR):
             self._Ct.addpoint(t, C=C)
 
         self._Ct.interpolate()
-        self.C = lambda t: self._Ct.C(t) 
+        self.C = lambda t: self._Ct.C(t)
 
 
 class Controller(object):
@@ -252,13 +250,12 @@ class DescentDirection(object):
 # implements a descent direction, given a quadratic model
 # see section 6.3.2 of Elliot Johnson's thesis
 
-
     def _xdot(self, t, x):
             u = self._controller(t, x)
             A = self.A(t)
             B = self.B(t)
             return matmult(A, x) + matmult(B, u)
-    
+
     def solve(self, **kwargs):
         n, m = self.dims
 
@@ -268,12 +265,12 @@ class DescentDirection(object):
         zeroRef.addpoint(self.tb, x=np.zeros(n), u=np.zeros(m))
         zeroRef.interpolate()
 
-        self._controller = Controller(reference=zeroRef, \
-                                     K = self.lq.K, C = self.lq.C)
-
+        self._controller = Controller(reference=zeroRef,
+                                      K=self.lq.K, C=self.lq.C)
 
         xdot = lambda t, x: self._xdot(t, x)
-        (t, x, jumps) = sysIntegrate(xdot, self.dx0, tlims=self.tlims)
+        (t, x, jumps) = sysIntegrate(xdot, self.dx0, tlims=self.tlims,
+                                    jumps=self.jumps)
         tj = Trajectory('x', 'u')
         for (tt, xx) in zip(t, x):
             tj.addpoint(tt, x=xx, u=self._controller(tt, xx))
@@ -283,6 +280,7 @@ class DescentDirection(object):
 
 
 class GradDirection(DescentDirection):
+
     def __init__(self, tlims, A, B, **kwargs):
         self.tlims = tlims
         self.ta, self.tb = self.tlims
@@ -297,6 +295,8 @@ class GradDirection(DescentDirection):
         self.r = kwargs['r']
         self.qf = kwargs['qf']
 
+        self.jumps = kwargs['jumps'] if 'jumps' in kwargs else []
+
         # set initial condition to zero if nothing is passed
         self.dx0 = kwargs['dx0'] if 'dx0' in kwargs else np.zeros(n)
 
@@ -304,8 +304,3 @@ class GradDirection(DescentDirection):
         self.lq.solve()
         # don't need to set R, Q, Qf, S because set to I
         # and 0 by default
-
-
-
-       
-

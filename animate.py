@@ -19,7 +19,7 @@ def init():
 
 
 def animate(i):
-    t = float(i)/rate
+    t = float(i) / rate
     newPq = s.xtopq(lintraj.x(t))
     newqq = s.xtoq(lintraj.x(t))
 
@@ -47,7 +47,7 @@ def animate(i):
 
 if __name__ == "__main__":
     fig = plt.figure(figsize=(8, 4.5))  # 16:9 ratio
-    xmin = -3*np.pi
+    xmin = -3 * np.pi
     xmax = np.pi
     ymin = -6
     ymax = 6
@@ -55,14 +55,14 @@ if __name__ == "__main__":
                           aspect='equal', xlabel="$x(m)$",
                           ylabel="$y(m)$",
                           title='Euclidean Space')
-    #axl.tick_params(pad=-20)
+    # axl.tick_params(pad=-20)
 
     axr = fig.add_subplot(122, xlim=(xmin, xmax), ylim=(ymin, ymax),
                           aspect='equal', xlabel=r'$\bar{x}$',
                           ylabel=r'$\bar{y}$',
                           title='Modified Space')
-    #axr.set_yticklabels([])
-    #axr.set_xticklabels([])
+    # axr.set_yticklabels([])
+    # axr.set_xticklabels([])
 
     xarray = np.linspace(xmin, xmax, 100)
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
                                 facecolor='grey', alpha=0.5)
     sinlabel = axl.text(-6, -4, r"$\phi(q)<0$")
 
-    flatfloor = axr.fill_between(xarray, ymin, 0*xarray,
+    flatfloor = axr.fill_between(xarray, ymin, 0 * xarray,
                                  facecolor='grey', alpha=0.5)
     flatlabel = axr.text(-6, -4, r'$\bar{\phi}(\bar{q})<0$')
 
@@ -87,9 +87,9 @@ if __name__ == "__main__":
     tmax = lintraj._t[-1]
     rate = 90.0  # in frames per second
 
-    ani = animation.FuncAnimation(fig, animate, 
-                                  frames=int(rate*(tmax-tmin)),
-                                  interval=1000/(rate), blit=True,
+    ani = animation.FuncAnimation(fig, animate,
+                                  frames=int(rate * (tmax - tmin)),
+                                  interval=1000 / (rate), blit=True,
                                   init_func=init, repeat=True)
 
     # dpi = 720/height in inches for 720p output
