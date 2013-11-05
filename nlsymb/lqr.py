@@ -177,8 +177,7 @@ class LQ(LQR):
 
         self.bdot = lambda s, b: self._bdot(s, b)
 
-        self.jumps = kwargs['jumps'] if 'jumps' in kwargs else []
-        self.tjmp, self.fjmp = map(list, zip(*self.jumps))
+        #self.tjmp, self.fjmp = map(list, zip(*self.jumps))
 
     def _bdot(self, s, b):
         A, B = self.A(-s), self.B(-s)

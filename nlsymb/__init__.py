@@ -202,8 +202,16 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
 
     while solver.successful() and solver.t < tf:
         solver.integrate(tf, relax=True, step=True)
-        x.append(solver.y)
+        
+        xx = solver.y
+        if jumps_in:
+            for (tj, fj) in self.jumps:
+                if t[-1] < tj and tj < solver.t:
+                    xx = xx  + fj
+
+        x.append(xx)
         t.append(solver.t)
+        
         if phi:
             dp, dn = map(phi, x[-2:])   # distance prev, distance next
             if dp * dn < 0:               # if a crossing occured
@@ -227,8 +235,7 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
                 if debug:
                     print("found intersection at t=%f" % tcross)
 
-        if jumps_in:
-            pass
+            
 
     # make the last point be exactly at tf
     # xf = x[-2] + (tf - t[-2])*(x[-1] - x[-2])/(t[-1] - t[-2])
