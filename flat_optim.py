@@ -162,6 +162,7 @@ if __name__ == "__main__":
                        dfdx=s.dfdx, dfdu=s.dfdu)
         nlsys.phi = s.phi
         nlsys.ref = ref
+        nlsys.delf = s.delf
 
         Rcost = lambda t: np.diag([10, 10])
         Qcost = lambda t: np.diag([100, 100, 1, 1])

@@ -36,6 +36,7 @@ class System():
         self.dfdx = kwargs['dfdx'] if 'dfdx' in keys else None
         self.dfdu = kwargs['dfdu'] if 'dfdu' in keys else None
         self.phi = kwargs['phi'] if 'phi' in keys else None
+        self.delf = kwargs['delf'] if 'delf' in kwargs else None
 
         if self.ufun is None:
             self.dimu = 0
@@ -60,8 +61,8 @@ class System():
             print("Nothing to reset to. Not doing anything.")
 
     # TODO make sure this works in all combinations of linearization
-    # or not, and controlled or not; first, though, get it working with
-    # everything on
+    # or not, and controlled or not;
+    # Major cleanup needed.
     def integrate(self, use_jac=False, linearize=True,
                   interpolate=True, **kwargs):
         keys = kwargs.keys()
@@ -80,8 +81,14 @@ class System():
 
         jac = dfdx if use_jac else None
 
-        (t, x, jumps) = sysIntegrate(func, self.xinit, tlims=self.tlims,
+        if self.delf is not None:
+            delfunc = lambda t, x: self.delf(t, x, self.ufun(t, x))
+            (t, x, jumps) = sysIntegrate(func, self.xinit, tlims=self.tlims,
+                                     phi=self.phi, jac=jac, delfunc=delfunc)
+        else:
+            (t, x, jumps) = sysIntegrate(func, self.xinit, tlims=self.tlims,
                                      phi=self.phi, jac=jac)
+
 
         components = ['x']
         if 'ufun' in self.__dict__.keys():
@@ -382,10 +389,11 @@ class SymSys():
     def phi(self, xval):
         return xval[self.si]
 
-    def _delf(self, t, xval):
+    def _delf(self, t, xval, uval):
         # calculates the jump term assuming the field switches
         # between fplus and fminus at (t, x)
-        fdiff = self._fplus.func(t, xval) - self._fmius.func(t, xval)
+        params = np.concatenate(([t], xval, uval))
+        fdiff = self._fplus.func(*params) - self._fmins.func(*params)
         dphi = np.zeros(len(xval))
         dphi[self.si] = 1
         # this assumes x = [z, zdot]
@@ -442,7 +450,7 @@ class SymSys():
         self.controller = lambda t, x: [0, 0]
         self._ohm = tn.lambdify(self.z, self._Ohm)
         self._psi = tn.lambdify(self.q, self._Psi)
-        self.delf = lambda t, x: self._delf(t, x)
+        self.delf = lambda t, x, u: self._delf(t, x, u)
 
 
 if __name__ == "__main__":

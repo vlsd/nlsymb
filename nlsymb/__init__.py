@@ -176,11 +176,20 @@ class Timer():
 
 def sysIntegrate(func, init, control=None, phi=None, debug=False, 
                  tlims=(0, 10), jac=None, method='bdf', **kw):
-    # func(t, x, u) returns xdot
-    # control is parameter that gets passed to func, representing
-    # a controller
-    # phi(x) returns the distance to the switching plane if any
-    # init is the initial value of x at tlims[0]
+    """
+    func(t, x, u): returns xdot
+    init: the value of x at tlims[0]
+    'tlims': (ta, tb), ta < tb
+    'control': a Controller() instance
+    'jac': jac(t, x, u) the jacobian of func. used only if provided,
+            not used if 'control' is provided
+    'method': see the 'method' argument for the 'vode' integrator
+    'debug': if True, prints debug statements
+    'phi': phi(x) that returns the distance to the switching plane
+    'jumps': [(tj,fj), ...] list of times and jump matrices
+             fj is a matrix that multiplies x at the jump time
+    'delfunc': delf(t, x, u) a callable that returns a jump matrix
+    """
 
     ti, tf = tlims
     t, x = ([ti], [init])
@@ -196,8 +205,7 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
 
     dim = len(init)
 
-    if 'delfunc' in kw:
-        jumps_out = []
+    jumps_out = []
     jumps_in = kw['jumps'] if 'jumps' in kw else []
 
     while solver.successful() and solver.t < tf:
@@ -205,9 +213,9 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
         
         xx = solver.y
         if jumps_in:
-            for (tj, fj) in self.jumps:
+            for (tj, fj) in jumps_in:
                 if t[-1] < tj and tj < solver.t:
-                    xx = xx  + fj
+                    xx = xx  + matmult(fj,xx)
 
         x.append(xx)
         t.append(solver.t)
@@ -227,8 +235,9 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
 
                 # obtain jump term
                 if 'delfunc' in kw:
-                    jumps_out.append((tcross, 
-                                     kw['delfunc'](tcross, xcross)))
+                    delf = kw['delfunc']
+                    jmatrix = delf(tcross, xcross)
+                    jumps_out.append((tcross, jmatrix))
 
                 # reset integration
                 solver.set_initial_value(xcross, tcross)
