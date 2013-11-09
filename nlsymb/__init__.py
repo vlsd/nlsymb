@@ -152,7 +152,7 @@ class LineSearch():
                     gamma = gamma / 2
                     print("decreasing gamma to %e" % gamma)
                     # this will not work with the -O flag
-                    assert gamma > 1e-18, gamma
+                    assert gamma > 1e-25, gamma
                 else:
                     break
             except TimeoutError:

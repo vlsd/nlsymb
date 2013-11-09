@@ -122,7 +122,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 2)
+    tlims = (0, 0.5)
     ta, tb = tlims
 
     """
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
         itj = Trajectory('x', 'u')
         # tmid = (tlims[0] + tlims[1])/2
-        itj.addpoint(tlims[0], x=xinit, u=np.array([0.0, 0.0]))
+        itj.addpoint(tlims[0], x=ref.x(tlims[0]), u=np.array([0.0, 0.0]))
         # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
         # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
         itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.0, 0.0]))
