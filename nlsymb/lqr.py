@@ -250,10 +250,10 @@ class DescentDirection(object):
 # see section 6.3.2 of Elliot Johnson's thesis
 
     def _xdot(self, t, x):
-            u = self._controller(t, x)
-            A = self.A(t)
-            B = self.B(t)
-            return matmult(A, x) + matmult(B, u)
+        u = self._controller(t, x)
+        A = self.A(t)
+        B = self.B(t)
+        return matmult(A, x) + matmult(B, u)
 
     def solve(self, **kwargs):
         n, m = self.dims
