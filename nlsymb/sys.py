@@ -398,9 +398,15 @@ class SymSys():
         # calculates the jump term assuming the field switches
         # between fplus and fminus at (t, x)
         params = np.concatenate(([t], xval, uval))
-        fdiff = self._fplus.func(*params) - self._fmins.func(*params)
+        
+        #fdiff = self._fplus.func(*params) - self._fmins.func(*params)
+
         # this assumes x = [z, zdot]
-        out = np.outer(fdiff, self.dphi(xval))/xval[self.dim + self.si]
+        #out = np.outer(fdiff, self.dphi(xval))/xval[self.dim + self.si]
+        M = tn.eval(self.Mz, self.z, xval[:self.dim])
+        out = np.zeros((2*self.dim, 2*self.dim))
+        for i in range(self.dim):
+            out[self.si, i] = -0.0*M[self.si, i]
         return out
 
     def __init__(self, si=1, k=50.0, m=1.0, g=9.8):
