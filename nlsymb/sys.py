@@ -1,14 +1,14 @@
-import numpy as np
-import sympy as sym
-from sympy import Symbol as S
-from copy import deepcopy
-from scipy.integrate import trapz
+from nlsymb import deepcopy, np, sym, scipy, matmult,\
+        interxpolate, sysIntegrate, Trajectory
 
 import tensor as tn
-from . import matmult, interxpolate, sysIntegrate, Trajectory
+from sympy import Symbol as S
+from scipy.integrate import trapz
+
+#from nlsymb import matmult, interxpolate, sysIntegrate, Trajectory
 from lqr import LQR, Controller
 from timeout import timeout
-
+from IPython.core.debugger import Tracer
 
 class System():
 
@@ -125,7 +125,7 @@ class System():
         traj.jumps = jumps
         return traj
 
-    @timeout(30)
+    @timeout(3000)
     def project(self, traj, tlims=None, lin=False):
         if traj.feasible:
             return traj
@@ -135,7 +135,7 @@ class System():
 
         self.xinit = traj.x(tlims[0])
 
-        if 'regulator' in self.__dict__.keys():
+        if 'regulator' in self.__dict__:
             # print("regular projection")
             ltj = self.lintraj
             reg = self.regulator
@@ -399,11 +399,17 @@ class SymSys():
         # between fplus and fminus at (t, x)
         params = np.concatenate(([t], xval, uval))
         
-        fdiff = self._fplus.func(*params) - self._fmins.func(*params)
 
+        fp = self._fplus.func(*params)
+        fm = self._fmins.func(*params)
+        dphi = self.dphi(xval)
+        
         # this assumes x = [z, zdot]
-        out = np.outer(fdiff, self.dphi(xval))
-        #M = tn.eval(self.Mz, self.z, xval[:self.dim])
+        #print("fdiff at t=%f: %e" % (t, fdiff))
+        out = np.outer(fp-fm, dphi)/np.inner(fp, dphi)
+        M = tn.eval(self.Mz, self.z, xval[:self.dim])
+
+        #Tracer()()
         #out = np.zeros((2*self.dim, 2*self.dim))
         #for i in range(self.dim):
         #    out[self.si, i] = -M[self.si, i]

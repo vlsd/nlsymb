@@ -1,4 +1,6 @@
 import numpy as np
+import sympy as sym
+
 from functools import reduce
 import time
 import scipy
@@ -6,6 +8,7 @@ from scipy.integrate import ode
 import scipy.interpolate
 from copy import deepcopy
 from timeout import TimeoutError
+from termcolor import colored
 
 # from matutils import matmult
 
@@ -19,7 +22,7 @@ def matmult(*x):
 
 
 class Trajectory():
-    # a class to represent a trajectory, takes lists of points and
+    # a class to reyysresent a trajectory, takes lists of points and
     # returns interpolation objects (callables)
 
     def __init__(self, *args):

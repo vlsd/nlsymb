@@ -9,9 +9,10 @@ from sympy import Symbol as S
 import nlsymb
 # nlsymb = reload(nlsymb)
 
-from nlsymb import Timer, LineSearch
+from nlsymb import Timer, LineSearch, np, colored
 from nlsymb.sys import *
 from nlsymb.lqr import *
+
 
 # coming soon to a theatre near you
 # DoublePlot
@@ -122,7 +123,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 0.6)
+    tlims = (0, 2)
     ta, tb = tlims
 
     """
@@ -165,7 +166,7 @@ if __name__ == "__main__":
         nlsys.delf = s.delf
 
         Rcost = lambda t: np.diag([10, 10])
-        Qcost = lambda t: np.diag([100, 100, 1, 1])
+        Qcost = lambda t: np.diag([10, 10, 1, 1])
 
         PTcost = Qcost(tb)
 
@@ -189,7 +190,8 @@ if __name__ == "__main__":
             descdir.solve()
 
             costs.append(cost(tj))
-            print("cost of trajectory before descent: %f" % costs[-1])
+            print("cost of trajectory before descent: " +
+                  colored("%f" % costs[-1], 'red'))
 
             ddir = descdir.direction
             ddircost = cost(ddir, project=False)
@@ -212,7 +214,7 @@ if __name__ == "__main__":
                     print("cost of descent direction: %f" % ddircost)
 
                 if ls is None:
-                    alpha = 10000 / ddircost
+                    alpha = 100 / ddircost
                 else:
                     alpha = ls.gamma * 2
                 ls = LineSearch(cost, cost.grad, alpha=alpha, beta=1e-8)

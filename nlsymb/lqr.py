@@ -3,6 +3,8 @@ from scipy.linalg import schur
 from numpy.linalg import inv
 from scipy.integrate import ode
 from scipy.integrate import trapz
+from IPython.core.debugger import Tracer
+from nlsymb import colored
 
 from . import matmult, sysIntegrate, Trajectory
 
@@ -75,10 +77,12 @@ class CDRE(object):
             self.Pb = kwargs['Pb']
         else:
             # obtain P from an algebraic ricatti at tb
-            care = CARE(self.A(tb), self.B(tb), R=self.R(tb),
-                        Q=self.Q(tb))
-            care.solve()
-            self.Pb = care.P
+            #care = CARE(self.A(ta), self.B(ta), R=self.R(ta),
+            #            Q=self.Q(ta))
+            #care.solve()
+            #self.Pb = care.P
+            #self.Pb = np.eye(n)/100.0
+            self.Pb = np.zeros((n,n))
 
     def _Pdot(self, s, P):
         A, B = self.A(-s), self.B(-s)
@@ -170,14 +174,15 @@ class LQ(LQR):
     def __init__(self, tlims, A, B, **kwargs):
         super(LQ, self).__init__(tlims, A, B, **kwargs)
         # extra stuff
-
+        
         self.q = kwargs['q']
         self.r = kwargs['r']
         self.qf = kwargs['qf']
 
         self.bdot = lambda s, b: self._bdot(s, b)
 
-        #self.tjmp, self.fjmp = map(list, zip(*self.jumps))
+        #if 'jumps' in kwargs:
+        #    self.jumps = kwargs['jumps']
 
     def _bdot(self, s, b):
         A, B = self.A(-s), self.B(-s)
@@ -202,17 +207,19 @@ class LQ(LQR):
 
         while solver.successful() and solver.t < sa:
             solver.integrate(sa, step=True)
-            b = solver.y
+            bb = solver.y
 
-            # I wrongly added this here
-            ## find which jumps lie between this time step and the previous one
-            ## add the corresponding term to b = solver.y + jumpterm
-            #prevtime = np.min(self._bt._t)  # replace with call to _bt.tmin
-            #for (tj, fj) in self.jumps:
-            #    if prevtime > tj and tj > -solver.t:
-            #        b = b + fj * (-solver.t - prevtime)
+            # find which jumps lie between this time step and the previous one
+            # add the corresponding term to b = solver.y + jumpterm
+            #if self.jumps:
+            #    prevtime = np.min(self._bt._t)  # replace with call to _bt.tmin
+            #    for (tj, fj) in self.jumps:
+            #        if prevtime > tj and tj > -solver.t:
+            #            # negative sign because backwards integration
+            #            b = b - matmult(fj.T, b)
+            #            solver.set_initial_value(b, solver.t) 
 
-            self._bt.addpoint(-solver.t, b=b)
+            self._bt.addpoint(-solver.t, b=bb)
 
         self._bt.interpolate()
         self.b = self._bt.b
