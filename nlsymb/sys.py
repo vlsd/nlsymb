@@ -166,15 +166,19 @@ class CostFunction():
         self.PT = PT
         self.projector = (lambda x: x) if projector is None else projector
 
-    def __call__(self, traj, project=True):
-        tj = self.projector(traj) if project else traj
-        T = tj.tlims[1]
+    def __call__(self, traj, tspace=False):
+        tj = traj if traj.feasible or tspace else self.projector(traj) 
+        ta, tb = tj.tlims
+        T = tb
 
-        tlist = tj._t
+        tlist = np.linspace(ta, tb, (tb-ta)*1e3, endpoint=True)
+        xlist = [tj.x(t) for t in tlist]
+        ulist = [tj.u(t) for t in tlist]
         elist = []
-        for (t, x, u) in zip(tlist, tj._x, tj._u):
-            xd = self.ref.x(t)
-            ud = self.ref.u(t)
+        for (t, x, u) in zip(tlist, xlist, ulist):
+            # only consider reference if not in tangent space
+            xd = (0.0 if tspace else 1.0)*self.ref.x(t) 
+            ud = (0.0 if tspace else 1.0)*self.ref.u(t)
             Q = self.Q(t)
             R = self.R(t)
             expr = matmult(x - xd, Q, x - xd) + matmult(u - ud, R, u - ud)
@@ -182,8 +186,10 @@ class CostFunction():
 
         # integrate the above
         out = 0.5 * trapz(elist, tlist)
-        out += 0.5 * matmult(tj.x(T) - self.ref.x(T), self.PT,
-                             tj.x(T) - self.ref.x(T))
+        # don't add a terminal cost in tangent space
+        if not tspace:
+            out += 0.5 * matmult(tj.x(T) - self.ref.x(T), 
+                                 self.PT, tj.x(T) - self.ref.x(T))
         return out
 
     def grad(self, traj, dir):
@@ -406,7 +412,7 @@ class SymSys():
         
         # this assumes x = [z, zdot]
         #print("fdiff at t=%f: %e" % (t, fdiff))
-        out = np.outer(fp-fm, dphi)/np.inner(fp, dphi)
+        out = -np.outer(fp-fm, dphi)/np.inner(fp, dphi)
         M = tn.eval(self.Mz, self.z, xval[:self.dim])
 
         #Tracer()()

@@ -87,7 +87,13 @@ class Trajectory():
                               for n in names})
         tj.interpolate()
         tj.feasible = False
+        # use the most restrictive time limits
+        tj.tlims = (max(self.tlims[0], other.tlims[0]),
+                    min(self.tlims[1], other.tlims[1]))
         return tj
+
+    def __neg__(self):
+        return -1.0*self
 
     def __rmul__(self, scalar):
         # multiplies everything by the scalar
@@ -100,6 +106,7 @@ class Trajectory():
 
         out.interpolate()
         out.feasible = False
+        out.tlims = self.tlims
         return out
 
     """ old version of add, see above for new version
@@ -155,7 +162,7 @@ class LineSearch():
                     gamma = gamma / 2
                     print("decreasing gamma to %e" % gamma)
                     # this will not work with the -O flag
-                    assert gamma > 1e-25, gamma
+                    assert gamma > 1e-15, gamma
                 else:
                     break
             except TimeoutError:

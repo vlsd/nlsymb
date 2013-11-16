@@ -2,7 +2,6 @@ import numpy as np
 from scipy.linalg import schur
 from numpy.linalg import inv
 from scipy.integrate import ode
-from scipy.integrate import trapz
 from IPython.core.debugger import Tracer
 from nlsymb import colored
 
@@ -248,7 +247,7 @@ class Controller(object):
             self.K = lambda t: np.zeros((m, n))
 
     def __call__(self, t, x):
-        return self.ref.u(t) - \
+        return self.ref.u(t) + \
             matmult(self.K(t), x - self.ref.x(t)) - self.C(t)
 
 

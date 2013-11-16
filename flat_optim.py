@@ -123,7 +123,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 2)
+    tlims = (0, 0.5)
     ta, tb = tlims
 
     """
@@ -166,9 +166,9 @@ if __name__ == "__main__":
         nlsys.delf = s.delf
 
         Rcost = lambda t: np.diag([10, 10])
-        Qcost = lambda t: np.diag([10, 10, 1, 1])
+        Qcost = lambda t: np.diag([10, 10, 10, 10])
 
-        PTcost = Qcost(tb)
+        PTcost = 0*Qcost(tb)
 
         # zerocontrol = Controller(reference=ref)
         # nlsys.set_u(zerocontrol)
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                   colored("%f" % costs[-1], 'red'))
 
             ddir = descdir.direction
-            ddircost = cost(ddir, project=False)
+            ddircost = cost(ddir, tspace=True)
             gradcosts.append(ddircost)
             print("cost of descent direction: %f" % ddircost)
 
@@ -209,14 +209,14 @@ if __name__ == "__main__":
                     print("cost of trajectory before descent: %f" % costs[-1])
 
                     ddir = descdir.direction
-                    ddircost = cost(ddir, project=False)
+                    ddircost = cost(ddir, tspace=True)
                     gradcosts.append(ddircost)
                     print("cost of descent direction: %f" % ddircost)
 
                 if ls is None:
                     alpha = 100 / ddircost
                 else:
-                    alpha = ls.gamma * 2
+                    alpha = ls.gamma * 10
                 ls = LineSearch(cost, cost.grad, alpha=alpha, beta=1e-8)
                 ls.x = tj
                 ls.p = descdir.direction
