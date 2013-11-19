@@ -83,6 +83,11 @@ class CDRE(object):
             #self.Pb = np.eye(n)/100.0
             self.Pb = np.zeros((n,n))
 
+        if 'jumps' in kwargs:
+            self.jumps = kwargs['jumps']
+        else:
+            self.jumps = []
+
     def _Pdot(self, s, P):
         A, B = self.A(-s), self.B(-s)
         R, Q = self.R(-s), self.Q(-s)
@@ -111,7 +116,19 @@ class CDRE(object):
 
         while solver.successful() and solver.t < sa:
             solver.integrate(sa, step=True)
-            self._Ptj.addpoint(-solver.t, P=solver.y.reshape((n, n)))
+            P = solver.y.reshape((n, n))
+        
+            # find which jumps lie between this time step and the previous one
+            # add the corresponding term to b = solver.y + jumpterm
+            if self.jumps:
+                prevtime = np.min(self._Ptj._t)  # replace with call to _bt.tmin
+                for (tj, fj) in self.jumps:
+                    if prevtime > tj and tj > -solver.t:
+                        # negative sign because backwards integration
+                        P = P + matmult(fj.T, P) + matmult(P, fj)
+                        solver.set_initial_value(P.ravel(), solver.t) 
+
+            self._Ptj.addpoint(-solver.t, P=P)
 
         self._Ptj.interpolate()
         self.P = lambda t: self._Ptj.P(t)
@@ -180,8 +197,10 @@ class LQ(LQR):
 
         self.bdot = lambda s, b: self._bdot(s, b)
 
-        #if 'jumps' in kwargs:
-        #    self.jumps = kwargs['jumps']
+        if 'jumps' in kwargs:
+            self.jumps = kwargs['jumps']
+        else:
+            self.jumps = []
 
     def _bdot(self, s, b):
         A, B = self.A(-s), self.B(-s)
@@ -206,19 +225,19 @@ class LQ(LQR):
 
         while solver.successful() and solver.t < sa:
             solver.integrate(sa, step=True)
-            bb = solver.y
+            b = solver.y
 
             # find which jumps lie between this time step and the previous one
             # add the corresponding term to b = solver.y + jumpterm
-            #if self.jumps:
-            #    prevtime = np.min(self._bt._t)  # replace with call to _bt.tmin
-            #    for (tj, fj) in self.jumps:
-            #        if prevtime > tj and tj > -solver.t:
-            #            # negative sign because backwards integration
-            #            b = b - matmult(fj.T, b)
-            #            solver.set_initial_value(b, solver.t) 
+            if self.jumps:
+                prevtime = np.min(self._bt._t)  # replace with call to _bt.tmin
+                for (tj, fj) in self.jumps:
+                    if prevtime > tj and tj > -solver.t:
+                        # negative sign because backwards integration
+                        b = b - matmult(fj.T, b)
+                        solver.set_initial_value(b, solver.t) 
 
-            self._bt.addpoint(-solver.t, b=bb)
+            self._bt.addpoint(-solver.t, b=b)
 
         self._bt.interpolate()
         self.b = self._bt.b
@@ -247,7 +266,7 @@ class Controller(object):
             self.K = lambda t: np.zeros((m, n))
 
     def __call__(self, t, x):
-        return self.ref.u(t) + \
+        return self.ref.u(t) - \
             matmult(self.K(t), x - self.ref.x(t)) - self.C(t)
 
 

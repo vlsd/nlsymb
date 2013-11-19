@@ -125,7 +125,7 @@ class System():
         traj.jumps = jumps
         return traj
 
-    @timeout(3000)
+    @timeout(30)
     def project(self, traj, tlims=None, lin=False):
         if traj.feasible:
             return traj
@@ -411,10 +411,12 @@ class SymSys():
         dphi = self.dphi(xval)
         
         # this assumes x = [z, zdot]
-        #print("fdiff at t=%f: %e" % (t, fdiff))
-        out = -np.outer(fp-fm, dphi)/np.inner(fp, dphi)
         M = tn.eval(self.Mz, self.z, xval[:self.dim])
+        M = scipy.linalg.block_diag(M, np.eye(self.dim))
+        dphi = matmult(M, dphi)
 
+        out = -np.outer(fp-fm, dphi)/np.inner(fp, dphi)
+        
         #Tracer()()
         #out = np.zeros((2*self.dim, 2*self.dim))
         #for i in range(self.dim):

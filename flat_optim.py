@@ -123,7 +123,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 0.5)
+    tlims = (0, 2)
     ta, tb = tlims
 
     """
@@ -190,28 +190,29 @@ if __name__ == "__main__":
             descdir.solve()
 
             costs.append(cost(tj))
-            print("cost of trajectory before descent: " +
+            print("[initial cost]\t\t" +
                   colored("%f" % costs[-1], 'red'))
 
             ddir = descdir.direction
             ddircost = cost(ddir, tspace=True)
             gradcosts.append(ddircost)
-            print("cost of descent direction: %f" % ddircost)
+            print("[descent direction]\t" + colored("%f" % ddircost, 'yellow'))
 
         index = 0
         ls = None
-        while ddircost > 1e-2:
+        while ddircost > 1e-4:
             index = index + 1
 
             with Timer("descent direction and line search "):
                 if index is not 1:
                     costs.append(cost(tj))
-                    print("cost of trajectory before descent: %f" % costs[-1])
+                    print("[cost]\t\t" + colored("%f" % costs[-1], 'blue'))
 
                     ddir = descdir.direction
                     ddircost = cost(ddir, tspace=True)
                     gradcosts.append(ddircost)
-                    print("cost of descent direction: %f" % ddircost)
+                    print("[descent direction]\t" +\
+                          colored("%f" % ddircost, 'yellow'))
 
                 if ls is None:
                     alpha = 100 / ddircost
