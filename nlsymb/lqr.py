@@ -2,8 +2,6 @@ import numpy as np
 from scipy.linalg import schur
 from numpy.linalg import inv
 from scipy.integrate import ode
-from IPython.core.debugger import Tracer
-from nlsymb import colored
 
 from . import matmult, sysIntegrate, Trajectory
 
@@ -108,27 +106,30 @@ class CDRE(object):
         Pdot = lambda s, P: self._Pdot(s, P)
         solver = ode(Pdot)
 
-        solver.set_integrator('vode', **kwargs)
+        solver.set_integrator('vode', max_step=1e-2, **kwargs)
         solver.set_initial_value(self.Pb.ravel(), sb)
 
         self._Ptj = Trajectory('P')
-        self._Ptj.addpoint(-sb, P=self.Pb)
+        results = [(-sb, self.Pb)]
 
-        while solver.successful() and solver.t < sa:
+        while solver.successful() and solver.t < sa + 1e-2:
             solver.integrate(sa, step=True)
             P = solver.y.reshape((n, n))
         
             # find which jumps lie between this time step and the previous one
             # add the corresponding term to b = solver.y + jumpterm
             if self.jumps:
-                prevtime = np.min(self._Ptj._t)  # replace with call to _bt.tmin
+                prevtime = results[-1][0]  # replace with call to _bt.tmin
                 for (tj, fj) in self.jumps:
                     if prevtime > tj and tj > -solver.t:
-                        # negative sign because backwards integration
+                        #  positive sign because backwards integration
                         P = P + matmult(fj.T, P) + matmult(P, fj)
                         solver.set_initial_value(P.ravel(), solver.t) 
+            
+            results.append((-solver.t, P))
 
-            self._Ptj.addpoint(-solver.t, P=P)
+        for (t, P) in reversed(results):
+            self._Ptj.addpoint(t, P=P)
 
         self._Ptj.interpolate()
         self.P = lambda t: self._Ptj.P(t)
@@ -217,27 +218,29 @@ class LQ(LQR):
         super(LQ, self).solve()
         sa, sb = (-self.ta, -self.tb)
         solver = ode(self.bdot)
-        solver.set_integrator('vode', **kwargs)
+        solver.set_integrator('vode', max_step=1e-2, **kwargs)
         solver.set_initial_value(self.qf, sb)
 
-        self._bt = Trajectory('b')
-        self._bt.addpoint(-sb, b=self.qf)
-
-        while solver.successful() and solver.t < sa:
+        results = [(-sb, self.qf)]
+        while solver.successful() and solver.t < sa + 1e-2:
             solver.integrate(sa, step=True)
             b = solver.y
 
             # find which jumps lie between this time step and the previous one
             # add the corresponding term to b = solver.y + jumpterm
             if self.jumps:
-                prevtime = np.min(self._bt._t)  # replace with call to _bt.tmin
+                prevtime = results[-1][0] # replace with call to _bt.tmin
                 for (tj, fj) in self.jumps:
                     if prevtime > tj and tj > -solver.t:
-                        # negative sign because backwards integration
-                        b = b - matmult(fj.T, b)
+                        # positive sign because backwards integration
+                        b = b + matmult(fj.T, b)
                         solver.set_initial_value(b, solver.t) 
 
-            self._bt.addpoint(-solver.t, b=b)
+            results.append((-solver.t, b))
+
+        self._bt = Trajectory('b')
+        for (t, b) in reversed(results):
+            self._bt.addpoint(t, b=b)
 
         self._bt.interpolate()
         self.b = self._bt.b
@@ -286,6 +289,8 @@ class DescentDirection(object):
         # make a zero trajectory
         zeroRef = Trajectory('x', 'u')
         zeroRef.addpoint(self.ta, x=np.zeros(n), u=np.zeros(m))
+        #zeroRef.addpoint((2*self.ta + self.tb)/3, x=np.zeros(n), u=np.zeros(m))
+        #zeroRef.addpoint((self.ta+2*self.tb)/3, x=np.zeros(n), u=np.zeros(m))
         zeroRef.addpoint(self.tb, x=np.zeros(n), u=np.zeros(m))
         zeroRef.interpolate()
 
@@ -298,6 +303,7 @@ class DescentDirection(object):
         tj = Trajectory('x', 'u')
         for (tt, xx) in zip(t, x):
             tj.addpoint(tt, x=xx, u=self._controller(tt, xx))
+
         tj.interpolate()
         tj.tlims = self.tlims
         self.direction = tj

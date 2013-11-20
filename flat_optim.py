@@ -123,7 +123,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 2)
+    tlims = (0, 1)
     ta, tb = tlims
 
     """
@@ -134,14 +134,15 @@ if __name__ == "__main__":
 
     with Timer("whole program"):
         with Timer("creating symbolic system"):
-            s = SymSys(k=5)
+            s = FlatFloor2D(k=3)
 
         # load the reference (target) trajectory
-        ref_file = open('slow_forced.p', 'rb')
+        ref_file = open('flat_ref.p', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
         # ref.xtonq(s)
         ref.interpolate()
+        ref.tlims = tlims
 
         # make an initial guess trajectory
         qinit = np.array([0.0, 1.0])
@@ -151,8 +152,11 @@ if __name__ == "__main__":
                                 np.dot(s.dPsi(qinit), qdoti)))
 
         itj = Trajectory('x', 'u')
-        # tmid = (tlims[0] + tlims[1])/2
+        #tmid1 = (2*tlims[0] + tlims[1])/3
+        #tmid2 = (tlims[0] + 2*tlims[1])/3
         itj.addpoint(tlims[0], x=ref.x(tlims[0]), u=np.array([0.0, 0.0]))
+        #itj.addpoint(tmid1,    x=ref.x(tmid1),    u=np.array([0.0, 0.0]))
+        #itj.addpoint(tmid2,    x=ref.x(tmid2),    u=np.array([0.0, 0.0]))
         # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
         # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
         itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.0, 0.0]))
@@ -166,9 +170,9 @@ if __name__ == "__main__":
         nlsys.delf = s.delf
 
         Rcost = lambda t: np.diag([10, 10])
-        Qcost = lambda t: np.diag([10, 10, 10, 10])
+        Qcost = lambda t: np.diag([10, 10, 1, 1])
 
-        PTcost = 0*Qcost(tb)
+        PTcost = Qcost(tb)
 
         # zerocontrol = Controller(reference=ref)
         # nlsys.set_u(zerocontrol)
@@ -200,7 +204,7 @@ if __name__ == "__main__":
 
         index = 0
         ls = None
-        while ddircost > 1e-4:
+        while ddircost > 1e-7:
             index = index + 1
 
             with Timer("descent direction and line search "):

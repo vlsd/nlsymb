@@ -74,10 +74,14 @@ class Trajectory():
     def interpolate(self):
         for k in self.__dict__.keys():
             if k[0] is '_' and k[1:] is not 't':
-                ifunc = interxpolate(self._t, getattr(self, k), axis=0)
+                ifunc = interxpolate(self._t, getattr(self, k),
+                                     axis=0, kind='slinear')
                 setattr(self, k[1:], ifunc)
 
     def __add__(self, other):
+        if len(other._t) > len(self._t):
+            return other + self
+
         names = (set(self.__dict__) & set(other.__dict__)) - {'t', '_t'}
         names = {k[1:] for k in names if k[0] is '_'}
         tj = Trajectory(*names)
@@ -206,7 +210,7 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
 
     solver = ode(func, jac)
     solver.set_integrator('vode',
-                          max_step=1e-1,
+                          max_step=1e-2,
                           method=method)
     solver.set_initial_value(init, ti)
 
@@ -218,7 +222,7 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
     jumps_out = []
     jumps_in = kw['jumps'] if 'jumps' in kw else []
 
-    while solver.successful() and solver.t < tf:
+    while solver.successful() and solver.t < tf + 1e-2:
         solver.integrate(tf, relax=True, step=True)
         
         xx = solver.y
@@ -272,8 +276,12 @@ class interxpolate(scipy.interpolate.interp1d):
         except ValueError as e:
             # TODO make sure this is only triggered for the
             # proper exception. Maybe use error numbers?
-            # print "WARNING: Interpolation called out of bounds, soldier!"
             xs, ys = (self.x, self.y)
+            if x < xs[0] - 2e-2 or x > xs[-1] + 2e-2:
+                print "ERROR: Interpolation called out of bounds at time %f" % x
+                raise
+
+            # if it is within tolerance simply extrapolate
             if x < xs[0]:
                 return ys[0]+(x-xs[0])*(ys[1]-ys[0])/(xs[1]-xs[0])
             elif x > xs[-1]:

@@ -10,7 +10,7 @@ from lqr import LQR, Controller
 from timeout import timeout
 from IPython.core.debugger import Tracer
 
-class System():
+class System(object):
 
     """
     a collection of callables, mostly """
@@ -81,6 +81,7 @@ class System():
 
         jac = dfdx if use_jac else None
 
+        #Tracer()()
         if self.delf is not None:
             delfunc = lambda t, x: self.delf(t, x, self.ufun(t, x))
             (t, x, jumps) = sysIntegrate(func, self.xinit, tlims=self.tlims,
@@ -90,6 +91,7 @@ class System():
                                      phi=self.phi, jac=jac)
 
 
+        #Tracer()()
         components = ['x']
         if 'ufun' in self.__dict__.keys():
             components.append('u')
@@ -125,7 +127,7 @@ class System():
         traj.jumps = jumps
         return traj
 
-    @timeout(30)
+    @timeout(30000)
     def project(self, traj, tlims=None, lin=False):
         if traj.feasible:
             return traj
@@ -147,14 +149,14 @@ class System():
         else:
             print("integrating and linearizing for the first time")
             control = Controller(reference=traj)
-
+            
             self.set_u(control)
             nutraj = self.integrate(linearize=True)
-
+            
             return self.project(nutraj, tlims=tlims, lin=lin)
 
 
-class CostFunction():
+class CostFunction(object):
 
     def __init__(self, dimx, dimu, ref,
                  R=None, Q=None, PT=None, projector=None):
@@ -196,80 +198,92 @@ class CostFunction():
         # this shouldn't be needed
         pass
 
-
-class SymSys():
+class SymSys(object):
     # a representation of a hybrid/impulsive system
-    # TODO: too much is hardcoded, but those functions had to go *somewhere*
-    dim = 2
+    # this class is not to be called directly, but instead inherited
+    # such that needed attributes, like q, x, M, etc. are implemented
+    # before calling __init__()
+    def __init__(self, si=0, **kwargs):
+        # this is the special index: z[si] = phi(z)
+        self.si = si
+        self.t = S('t')
+        n = self.dim
 
-    t = S('t')
-    z = map(S, ['z0', 'z1'])
-    p = map(S, ['p0', 'p1'])
-    q = map(S, ['q0', 'q1'])
-    x = map(S, ['x0', 'x1', 'x2', 'x3'])
-    u = map(S, ['u0', 'u1'])
+        self.qtoz = zip(self.q, self._Ohm)
+        self.alltoz = self.qtoz + zip(self.x, self.z)
+        self.ztoq = zip(self.z, self._Psi)
+        self.alltoq = self.ztoq + zip(self.x, self._Psi)
+        self.ztox = zip(self.z, self.x)
 
-    # create Ohm and dOhm
-    _Ohm = np.array([z[0], z[1] + sym.sin(z[0])])
+        # dOhm/dz, dPhi/dq, assuming the pieces are already defined
+        self._dOhm = tn.diff(self._Ohm, self.z)
+        self._dPsi = tn.diff(self._Psi, self.q)
+        
+        self.Mz = matmult(self._dOhm.T, self.Mq, self._dOhm)
+        self.Mzi = self._Mzi() 
 
-    _Psi = np.array([q[0], q[1] - sym.sin(q[0])])
+        self.dMq = tn.diff(self.Mq, self.q)
+        self.dMz = tn.diff(self.Mz, self.z)
 
-    qtoz = zip(q, _Ohm)
-    alltoz = qtoz + [(x[i], z[i]) for i in range(dim)]
-    ztoq = zip(z, _Psi)
-    alltoq = ztoq + [(x[i], _Psi[i]) for i in range(dim)]
-    ztox = [(z[i], x[i]) for i in range(dim)]
+        self.delta = self.Mzi[:, self.si] / self.Mzi[self.si, self.si]
+        # self.ddelta = tn.diff(self.delta, self.z)
 
-    # dOhm/dz
-    _dOhm = tn.diff(_Ohm, z)
-    #_dohm = tn.lambdify(z, _dOhm)
+        self.Vz = self.Vq.subs(self.alltoz, simultaneous=True)
+        self.dVz = tn.diff(self.Vz, self.z)
 
-    # dPsi/dq
-    _dPsi = tn.diff(_Psi, q)
-    #_dpsi = tn.lambdify(q, _dPsi)
+        self._P = self._makeP(self.k)
+        self._dP = tn.diff(self._P, self.z)
+        self._dPi = np.array(sym.Matrix(self._dP).inv())
 
-    def Ohm(self, z):
-        return tn.eval(self._Ohm, self.z, z)
+        self.ztozz = {self.z[i]: self._P[i] for i in range(self.dim)}
+        self.Mzzi = tn.subs(self.Mzi, self.ztozz)
+        self.dMzz = tn.subs(self.dMz, self.ztozz)
+        self.dVzz = tn.subs(self.dVz, self.ztozz)
+        self.dPzz = tn.subs(self._dP, self.ztozz)
 
-    def dOhm(self, z):
-        return tn.eval(self._dOhm, self.z, z)
+        params = [self.t, self.x, self.u]
 
-    def Psi(self, q):
-        return tn.eval(self._Psi, self.q, q)
+        self._fplus = self._makefp(params)
+        self._fmins = self._makefm(params)
 
-    def dPsi(self, q):
-        return tn.eval(self._dPsi, self.q, q)
+        self._dfxp = tn.SymExpr(self._fplus.diff(self.x))
+        self._dfxp.callable(*params)
+        self._dfxm = tn.SymExpr(self._fmins.diff(self.x))
+        self._dfxm.callable(*params)
+        self._dfup = tn.SymExpr(self._fplus.diff(self.u))
+        self._dfup.callable(*params)
+        self._dfum = tn.SymExpr(self._fmins.diff(self.u))
+        self._dfum.callable(*params)
+
+        self._ohm = tn.lambdify(self.z, self._Ohm)
+        self._psi = tn.lambdify(self.q, self._Psi)
+
+        # make the jump term generator callable
+        # and a bunch of other stuff as well
+        self.delf = lambda t, x, u: self._delf(t, x, u)
+
+        self.Ohm = lambda z: tn.eval(self._Ohm, self.z, z)
+        self.dOhm = lambda z: tn.eval(self._dOhm, self.z, z)
+        self.Psi = lambda q: tn.eval(self._Psi, self.q, q)
+        self.dPsi = lambda q: tn.eval(self._dPsi, self.q, q)
 
     # this function takes and returns numerical values
     def xtopq(self, x):
-        pz = self.P(x[:2])
+        pz = self.P(x[:self.dim])
         return self._ohm(*pz)
 
     def xtopz(self, x):
-        return self.P(x[:2])
+        return self.P(x[:self.dim])
 
     def xtoq(self, x):
-        q = x[:2]
+        q = x[:self.dim]
         return self._ohm(*q)
 
     def xtoz(self, x):
-        return x[:2]
+        return x[:self.dim]
 
-    # M as a function of z
-    def _buildMq(self):
-        return np.eye(self.dim) * self.m
-
-    # M inverse
-    def _buildMqi(self):
-        return np.eye(self.dim) / self.m
-
-    # Mzar as a function of z
-    def _buildMz(self):
-        return matmult(self._dOhm.T, self.Mq, self._dOhm)
-
-    # Mzar inverse
-    def _buildMzi(self):
-        # rule = [(self.q[i],self._Ohm[i]) for i in range(self.dim)]
+    # Mz inverse
+    def _Mzi(self):
         dpsi = np.empty_like(self._dPsi)
         for i in range(self.dim):
             for j in range(self.dim):
@@ -277,16 +291,9 @@ class SymSys():
                                                    simultaneous=True)
         return matmult(dpsi, self.Mqi, dpsi.T)
 
-    # potentials
-    def _build_Vq(self):
-        return -self.m * self.g * self.q[1]
-
-    def _build_Vz(self):
-        return self._build_Vq().subs(self.alltoz, simultaneous=True)
-
     # \dot{x}=f(x)
-    def _makefp(self):
-        zdot = self.x[2:4]
+    def _makefp(self, params):
+        zdot = self.x[self.dim:]
         out = np.concatenate((zdot,
                               np.dot(self.Mzi,
                                      - tn.einsum(
@@ -300,10 +307,12 @@ class SymSys():
                                   self.u)
                               ))
 
-        return tn.SymExpr(tn.subs(out, self.ztox))
+        out = tn.SymExpr(tn.subs(out, self.ztox))
+        out.callable(*params)
+        return out
 
-    def _makefm(self):
-        zdot = self.x[2:4]
+    def _makefm(self, params):
+        zdot = self.x[self.dim:]
         OhmP = tn.subs(self._Ohm, zip(self.z, self._P))
         OhmI = tn.subs(self._dPsi, zip(self.q, OhmP))
 
@@ -320,7 +329,10 @@ class SymSys():
         out = matmult(self._dPi, out)
         out = np.concatenate((zdot, out))
 
-        return tn.SymExpr(tn.subs(out, self.ztox))
+        out = tn.SymExpr(tn.subs(out, self.ztox))
+        out.callable(*params)
+
+        return out
 
     def _makeP(self, k):
         # builds the symbolic expression for the projection
@@ -336,14 +348,6 @@ class SymSys():
                 out[i] = z[i] - self.delta[i] * 2 * zs / (1 + k * zs ** 2)
 
         return np.array(out)
-
-    # returns a replacement rule u->mu+K(alpha-x) or something like that
-    # takes in a trajectory object
-    def feedback(self, t, K, traj):
-        mu = traj.u(t)
-        alpha = traj.x(t)
-        u = mu + np.dot(K, alpha - self.x)
-        return {self.u[i]: u[i] for i in range(u)}
 
     # can i conflate these three functions into one somehow?
     # probably, will have to think on it
@@ -405,7 +409,6 @@ class SymSys():
         # between fplus and fminus at (t, x)
         params = np.concatenate(([t], xval, uval))
         
-
         fp = self._fplus.func(*params)
         fm = self._fmins.func(*params)
         dphi = self.dphi(xval)
@@ -423,57 +426,57 @@ class SymSys():
         #    out[self.si, i] = -M[self.si, i]
         return out
 
-    def __init__(self, si=1, k=50.0, m=1.0, g=9.8):
-        self.si = si
-        # this is the special index: z[si] = phi(z)
-        self.k = k  # constant for projection
-        self.m = m  # mass
-        self.g = g  # gravitational constant
 
-        self.Mq = self._buildMq()
-        self.Mz = self._buildMz()
-        self.Mqi = self._buildMqi()
-        self.Mzi = self._buildMzi()
+class SinFloor2D(SymSys):
+    # two dimensional point mass, sinusoidal floor
+    def __init__(self, k=50.0, m=1.0, g=9.8, **kw):
+        self.k = k
+        self.m = m
+        self.g = g
+    
+        self.dim = 2
 
-        self.dMq = tn.diff(self.Mq, self.q)
-        self.dMz = tn.diff(self.Mz, self.z)
+        self.z = map(S, ['z0', 'z1'])
+        self.p = map(S, ['p0', 'p1'])
+        self.q = map(S, ['q0', 'q1'])
+        self.x = map(S, ['x0', 'x1', 'x2', 'x3'])
+        self.u = map(S, ['u0', 'u1'])
 
-        self.delta = self.Mzi[:, self.si] / self.Mzi[self.si, self.si]
-        # self.ddelta = tn.diff(self.delta, self.z)
+        self.Mq = np.eye(self.dim) * self.m
+        self.Mqi = np.eye(self.dim) / self.m
 
-        self.Vz = self._build_Vz()
-        self.dVz = tn.diff(self.Vz, self.z)
+        self.Vq = -self.m * self.g * self.q[1]
+        
+        # create Ohm and Psi
+        self._Ohm = np.array([self.z[0], self.z[1] + sym.sin(self.z[0])])
+        self._Psi = np.array([self.q[0], self.q[1] - sym.sin(self.q[0])])
 
-        self._P = self._makeP(self.k)
-        self._dP = tn.diff(self._P, self.z)
-        self._dPi = np.array(sym.Matrix(self._dP).inv())
+        #self.controller = lambda t, x: [0, 0]
+        
+        super(SinFloor2D, self).__init__(si=1) 
 
-        self.ztozz = {self.z[i]: self._P[i] for i in range(self.dim)}
-        self.Mzzi = tn.subs(self.Mzi, self.ztozz)
-        self.dMzz = tn.subs(self.dMz, self.ztozz)
-        self.dVzz = tn.subs(self.dVz, self.ztozz)
-        self.dPzz = tn.subs(self._dP, self.ztozz)
+class FlatFloor2D(SymSys):
+    def __init__(self, k=50.0, m=1.0, g=9.8, **kw):
+        self.k = k
+        self.dim = 2
 
-        params = [self.t, self.x, self.u]
+        self.z = map(S, ['z0', 'z1'])
+        self.p = map(S, ['p0', 'p1'])
+        self.q = map(S, ['q0', 'q1'])
+        self.x = map(S, ['x0', 'x1', 'x2', 'x3'])
+        self.u = map(S, ['u0', 'u1'])
 
-        self._fplus = self._makefp()
-        self._fplus.callable(*params)
-        self._fmins = self._makefm()
-        self._fmins.callable(*params)
+        self.Mq = np.eye(self.dim) * m
+        self.Mqi = np.eye(self.dim) / m
 
-        self._dfxp = tn.SymExpr(self._fplus.diff(self.x))
-        self._dfxp.callable(*params)
-        self._dfxm = tn.SymExpr(self._fmins.diff(self.x))
-        self._dfxm.callable(*params)
-        self._dfup = tn.SymExpr(self._fplus.diff(self.u))
-        self._dfup.callable(*params)
-        self._dfum = tn.SymExpr(self._fmins.diff(self.u))
-        self._dfum.callable(*params)
+        self.Vq = -m * g * self.q[1]
+        
+        # create Ohm and Psi
+        self._Ohm = self.z
+        self._Psi = self.q
+        
+        super(FlatFloor2D, self).__init__(si=1) 
 
-        self.controller = lambda t, x: [0, 0]
-        self._ohm = tn.lambdify(self.z, self._Ohm)
-        self._psi = tn.lambdify(self.q, self._Psi)
-        self.delf = lambda t, x, u: self._delf(t, x, u)
 
 
 if __name__ == "__main__":
