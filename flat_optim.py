@@ -134,10 +134,12 @@ if __name__ == "__main__":
 
     with Timer("whole program"):
         with Timer("creating symbolic system"):
-            s = FlatFloor2D(k=3)
+            #s = FlatFloor2D(k=3)
+            s = SinFloor2D(k=3)
 
         # load the reference (target) trajectory
-        ref_file = open('flat_ref.p', 'rb')
+        #ref_file = open('flat_ref.p', 'rb')
+        ref_file = open('sin_forced.p', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
         # ref.xtonq(s)
