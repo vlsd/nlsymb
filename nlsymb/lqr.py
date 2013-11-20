@@ -83,8 +83,8 @@ class CDRE(object):
 
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
-        else:
-            self.jumps = []
+        #else:
+        self.jumps = []
 
     def _Pdot(self, s, P):
         A, B = self.A(-s), self.B(-s)
@@ -200,8 +200,8 @@ class LQ(LQR):
 
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
-        else:
-            self.jumps = []
+        #else:
+        self.jumps = []
 
     def _bdot(self, s, b):
         A, B = self.A(-s), self.B(-s)
