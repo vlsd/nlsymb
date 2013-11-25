@@ -418,7 +418,7 @@ class SymSys(object):
         M = scipy.linalg.block_diag(M, np.eye(self.dim))
         #dphi = matmult(M, dphi)
 
-        out = -np.outer(fp-fm, dphi)/np.inner(fp, dphi)
+        out = -np.outer(fp-fm, dphi)/np.abs(np.inner(fp, dphi))
         
         #Tracer()()
         #out = np.zeros((2*self.dim, 2*self.dim))
