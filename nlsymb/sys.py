@@ -416,7 +416,7 @@ class SymSys(object):
         # this assumes x = [z, zdot]
         M = tn.eval(self.Mz, self.z, xval[:self.dim])
         M = scipy.linalg.block_diag(M, np.eye(self.dim))
-        dphi = matmult(M, dphi)
+        #dphi = matmult(M, dphi)
 
         out = -np.outer(fp-fm, dphi)/np.inner(fp, dphi)
         
