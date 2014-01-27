@@ -1,0 +1,3 @@
+use this folder to store pickle files
+as of now, just saved trajectories in here, such as reference
+or initial guesses
