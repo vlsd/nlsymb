@@ -138,8 +138,7 @@ if __name__ == "__main__":
             s = SinFloor2D(k=3)
 
         # load the reference (target) trajectory
-        #ref_file = open('flat_ref.p', 'rb')
-        ref_file = open('sin_forced.p', 'rb')
+        ref_file = open('pkl/sin_forced.p', 'rb')
         ref = pickle.load(ref_file)
         ref_file.close()
         # ref.xtonq(s)

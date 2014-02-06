@@ -31,4 +31,5 @@ things where they need to be.
 
 TODO
 ====
-More than I can think of. Too too much. 
+Make sure that flat_optim.py works as advertised (fixed some typos
+but no time to check in depth)
