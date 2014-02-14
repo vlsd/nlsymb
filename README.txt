@@ -26,10 +26,17 @@ Installation
 ============
 
 Not implemented yet. For now just clone the repo and manually copy
-things where they need to be.
+things where they need to be or develop directly in this folder.
 
 
 TODO
 ====
 Make sure that flat_optim.py works as advertised (fixed some typos
-but no time to check in depth)
+but no time to check in depth). Also add a few benchmark trajectories
+for it, like constant reference and control variations.
+
+Write run_optim.py file that takes type of floor, initial point,
+reference trajectory and cost functions as parameters/reads them from
+a file.
+
+
