@@ -234,13 +234,14 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
                     xx = xx  + matmult(fj,xx)
                     solver.set_initial_value(xx, solver.t)
 
+        """
         if phi:
             # if below the surface apply projection
             # and reset integration initial condition
             if phi(xx) <= 0 and (tf - solver.t) > 1e-5:
-                #xx[3] = 0
+                xx[3] = 0
                 solver.set_initial_value(xx, solver.t)
-        
+        """
         x.append(xx)
         t.append(solver.t)
         

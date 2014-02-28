@@ -9,6 +9,7 @@ from scipy.integrate import trapz
 from lqr import LQR, Controller
 from timeout import timeout
 from IPython.core.debugger import Tracer
+from sympy import sympify
 
 class System(object):
 
@@ -274,6 +275,20 @@ class SymSys(object):
         self.dPsi = lambda q: tn.eval(self._dPsi, self.q, q)
 
 
+        self.constraint = matmult(self._dPsi, self.Mqi, self.dphiq)
+        self.constraint = tn.subs(self.constraint, self.qtoz)
+        self.constraint = tn.subs(self.constraint, self.ztox)
+        self.constraint = tn.subs(self.constraint, {self.x[self.si]: sympify(0)})
+        self.constraint = tn.subs(self.constraint, {self.x[self.si+self.dim]: sympify(0)})
+        self.lam = -self._fplus.expr[self.si+self.dim]/self.constraint[self.si]
+        self.lam = tn.subs(self.lam, {self.x[self.si]: sympify(0)})
+        self.lam = tn.subs(self.lam, {self.x[self.si+self.dim]: sympify(0)})
+        self.lam = tn.subs(self.lam, self.ztox)
+        self.dldt = matmult(tn.diff(self.lam, self.x), self._fplus.expr)
+        self.dldt = tn.subs(self.dldt, self.ztox)
+        self.dldt = tn.subs(self.dldt, {self.x[self.si]: sympify(0)})
+        self.dldt = tn.subs(self.dldt, {self.x[self.si+self.dim]: sympify(0)})
+
     # this function takes and returns numerical values
     def xtopq(self, x):
         pz = self.P(x)[:self.dim]
@@ -318,15 +333,31 @@ class SymSys(object):
         out.callable(*params)
         return out
 
+
+
     def _makefm(self, params):
         from sympy import sympify
 
         zdot = self.x[self.dim:]
-
+        
         constraint = matmult(self._dPsi, self.Mqi, self.dphiq)
         constraint = tn.subs(constraint, self.qtoz)
-        lam = -self._fplus.expr[self.si]/constraint[self.si]
-
+        constraint = tn.subs(constraint, self.ztox)
+        constraint = tn.subs(constraint, {self.x[self.si]: sympify(0)})
+        constraint = tn.subs(constraint, {self.x[self.si+self.dim]: sympify(0)})
+        lam = -self._fplus.expr[self.si+self.dim]/constraint[self.si]
+        lam = tn.subs(lam, {self.x[self.si]: sympify(0)})
+        lam = tn.subs(lam, {self.x[self.si+self.dim]: sympify(0)})
+        lam = tn.subs(lam, self.ztox)
+        dldt = matmult(tn.diff(lam, self.x), self._fplus.expr)
+        dldt = tn.subs(dldt, self.ztox)
+        dldt = tn.subs(dldt, {self.x[self.si]: sympify(0)})
+        dldt = tn.subs(dldt, {self.x[self.si+self.dim]: sympify(0)})
+        #constraint = matmult(self._dPsi, self.Mqi, self.dphiq)
+        #constraint = tn.subs(constraint, self.qtoz)
+        #lam = -self._fplus.expr[self.si+self.dim]/constraint[self.si]
+        #dldt = matmult(tn.diff(lam, self.x), self._fplus.expr)
+        
         out = np.concatenate((zdot,
                               np.dot(self.Mzi,
                                      - tn.einsum(
@@ -340,7 +371,12 @@ class SymSys(object):
                                   self.u)
                               + lam*constraint
                               ))
-        out[self.si]=sympify(0)
+
+        # set this as a feedback equation, so that xdot will asymptotically
+        # approach lambda, hopefully crossing zero at the same time!
+        out[self.si+self.dim]= dldt - 100*(self.x[self.si+self.dim] + lam)
+        out[self.si] = sympify(0)
+        out = tn.subs(out, self.ztox)
         out = tn.SymExpr(tn.subs(out, self.ztox))
         out.callable(*params)
         return out
@@ -364,10 +400,10 @@ class SymSys(object):
         # choose between _fplus and _fmins
         # depending on the configuration
         # assume that ctrl is a rule for substituting u
-        if xval[self.si] > 0:
-            func = self._fplus.func
-        else:
+        if xval[self.si] <= 0  and xval[self.si+self.dim] <= 0:
             func = self._fmins.func
+        else:
+            func = self._fplus.func
 
         vals = np.concatenate([[t], xval, uval])
 
