@@ -235,19 +235,17 @@ class SymSys(object):
         self.dVz = tn.diff(self.Vz, self.z)
 
         self._P = self._makeP()
-        self._dP = tn.diff(self._P, self.x)
+        self._dP = tn.diff(self._P, self.z)
         self.Pfun = lambda x: self.P(x)
-        #self._dPi = np.array(sym.Matrix(self._dP).inv())
+        self._dPi = np.array(sym.Matrix(self._dP).inv())
 
         self.phiq = self.z[self.si].subs(self.ztoq)
         self.dphiq = tn.diff(self.phiq, self.q)
-        '''
         self.ztozz = {self.z[i]: self._P[i] for i in range(self.dim)}
         self.Mzzi = tn.subs(self.Mzi, self.ztozz)
         self.dMzz = tn.subs(self.dMz, self.ztozz)
         self.dVzz = tn.subs(self.dVz, self.ztozz)
         self.dPzz = tn.subs(self._dP, self.ztozz)
-        '''
         params = [self.t, self.x, self.u]
 
         self._fplus = self._makefp(params)
@@ -358,6 +356,24 @@ class SymSys(object):
         #lam = -self._fplus.expr[self.si+self.dim]/constraint[self.si]
         #dldt = matmult(tn.diff(lam, self.x), self._fplus.expr)
         
+        OhmP = tn.subs(self._Ohm, zip(self.z, self._P))
+        OhmI = tn.subs(self._dPsi, zip(self.q, OhmP))
+
+        zz = self._P
+        zzdot = np.dot(self._dP, zdot)
+
+        out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
+            + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot) / 2
+        out = np.dot(self.Mzzi, out + self.dVzz)
+        out = out - tn.einsum('ijk,j,k',
+                              tn.diff(self._dP, self.z), zdot, zdot)
+        out = out + matmult(OhmI, self.Mqi, self.u)
+                            # in general, there should be a subs here
+        out = out + lam*constraint
+        out = matmult(self._dPi, out)
+        out = np.concatenate((zdot, out))
+
+        '''
         out = np.concatenate((zdot,
                               np.dot(self.Mzi,
                                      - tn.einsum(
@@ -371,6 +387,7 @@ class SymSys(object):
                                   self.u)
                               + lam*constraint
                               ))
+        '''
 
         # set this as a feedback equation, so that xdot will asymptotically
         # approach lambda, hopefully crossing zero at the same time!
@@ -384,15 +401,19 @@ class SymSys(object):
     def _makeP(self):
         # builds the symbolic expression for the projection
         # does NOT check for feasible/infeasible stuff
+        k = self.k
         si = self.si
-        x = self.x
-        n = self.dim
-        out = deepcopy(x)
+        z = self.z
+        zs = z[si]
+        out = deepcopy(z)
 
-        out[si] = 0
-        out[si+n] = 0
+        out[si] = -zs
+        for i in range(len(z)):
+            if i != si:
+                out[i] = z[i] - self.delta[i] * zs / (1 + k * zs ** 2)
 
         return np.array(out)
+
 
     # can i conflate these three functions into one somehow?
     # probably, will have to think on it
@@ -427,20 +448,20 @@ class SymSys(object):
         vals = np.concatenate([[t], xval, uval])
         return func(*vals)
 
-    def P(self, xval):
+    def P(self, zval):
         # choose between identity and fancy projection
-        if xval[self.si] > 0:
-            return xval
+        if zval[self.si] > 0:
+            return zval
         else:
-            out = deepcopy(xval)
-            out[self.si] = 0
-            out[self.si + self.dim] = 0
-            return out
+            expr = self._P
+            vals = zval
+            params = self.z
+            return tn.eval(expr, params, vals)
 
-    def dP(self, xval):
+    def dP(self, zval):
         # for debug purposes
-        return tn.eval(self._dP, self.x, zval)
-    
+        return tn.eval(self._dP, self.z, zval)
+
     def phi(self, xval):
         return xval[self.si]
 
