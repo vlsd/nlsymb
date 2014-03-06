@@ -203,8 +203,6 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
     'jumps': [(tj,fj), ...] list of times and jump matrices
              fj is a matrix that multiplies x at the jump time
     'delfunc': delf(t, x, u) a callable that returns a jump matrix
-    'algebra': a function to apply to x after every iteration
-                (used for algebraic-differential integration)
     """
 
     ti, tf = tlims
@@ -225,7 +223,7 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
     jumps_in = kw['jumps'] if 'jumps' in kw else []
 
     while solver.successful() and solver.t < tf:
-        solver.integrate(2*tf, relax=True, step=True)
+        solver.integrate(tf + abs(tf), relax=True, step=True)
         
         xx = solver.y
         if jumps_in:
@@ -234,18 +232,46 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
                     xx = xx  + matmult(fj,xx)
                     solver.set_initial_value(xx, solver.t)
 
-        """
-        if phi:
-            # if below the surface apply projection
-            # and reset integration initial condition
-            if phi(xx) <= 0 and (tf - solver.t) > 1e-5:
-                xx[3] = 0
-                solver.set_initial_value(xx, solver.t)
-        """
         x.append(xx)
         t.append(solver.t)
         
+        if phi:
+            dp, dn = map(phi, x[-2:])   # distance prev, distance next
+            if dp * dn < 0:               # if a crossing occured
+                # use interpolation (linear) to find the time
+                # and config at the jump
+                # TODO do a line search instead: scipy.optimize.brentq()
+                alpha = dp / (dn - dp)
+                tcross = t[-2] - alpha * (t[-1] - t[-2])
+                xcross = x[-2] - alpha * (x[-1] - x[-2])
 
+                # move special x to be exactly zero
+                # TODO change this to not be hardcoded
+                si = 1
+                xcross[si] = 0.0
+                print(tcross, xcross)
+
+                # replace the wrong values
+                t[-1], x[-1] = (tcross, xcross)
+
+                # obtain jump term
+                # TODO make sure this is correct for plastic impact
+                if 'delfunc' in kw:
+                    delf = kw['delfunc']
+                    jmatrix = delf(tcross, xcross)
+                    jumps_out.append((tcross, jmatrix))
+
+                # reset integration
+                solver.set_initial_value(xcross, tcross)
+                if debug:
+                    print("found intersection at t=%f" % tcross)
+            # if separation is occuring
+            # TODO add linear interpolation here as well
+            elif dp==0 and dn > 0:
+                # right now the dynamics take care of this
+                pass
+
+            
 
     # make the last point be exactly at tf
     # xf = x[-2] + (tf - t[-2])*(x[-1] - x[-2])/(t[-1] - t[-2])
@@ -264,7 +290,7 @@ class interxpolate(scipy.interpolate.interp1d):
             # proper exception. Maybe use error numbers?
             xs, ys = (self.x, self.y)
             if x < xs[0] - 2e-2 or x > xs[-1] + 2e-2:
-                print "ERROR: Interpolation called out of bounds at time %f" % x
+                print("ERROR: Interpolation called out of bounds at time %f" % x)
                 raise
 
             # if it is within tolerance simply extrapolate
