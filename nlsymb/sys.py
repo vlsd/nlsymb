@@ -390,10 +390,9 @@ class SymSys(object):
         zs = z[si]
         out = deepcopy(z)
 
-        out[si] = (z[si]**2)/k
         for i in range(len(z)):
-            if i != si:
-                out[i] = z[i] - self.delta[i] * zs / (1 + k * zs ** 2)
+            out[i] = z[i] - self.delta[i] * zs / (1 + k * zs ** 2)
+        out[si] = 0
 
         return np.array(out)
 
@@ -406,10 +405,10 @@ class SymSys(object):
         # depending on the configuration
         # assume that ctrl is a rule for substituting u
         vals = np.concatenate([[t], xval, uval])
-        if xval[self.si] <= 0  and xval[self.si+self.dim] <= 0:
+        if xval[self.si] <= 0:  #and xval[self.si+self.dim] <= 0:
             out = self._fmins.func(*vals)
             zval = xval[n:]
-            out[n:] = matmult(self.dPi(zval),out[n:])
+            out[n:] = matmult(self.dPi(self.P(zval)),out[n:])
         else:
             out = self._fplus.func(*vals)
 
