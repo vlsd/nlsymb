@@ -419,7 +419,7 @@ class SymSys(object):
         Mi = np.linalg.inv(M)
         #dphi = matmult(M, dphi)
 
-        out = -np.outer(fp-fm, matmult(Mi, dphi))/np.abs(matmult(fp, Mi, dphi))
+        out = -np.outer(fp-fm, matmult(Mi, dphi))/matmult(fp, Mi, dphi)
         
         #Tracer()()
         #out = np.zeros((2*self.dim, 2*self.dim))
