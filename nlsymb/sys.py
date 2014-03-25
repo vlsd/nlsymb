@@ -342,10 +342,11 @@ class SymSys(object):
         zs = z[si]
         out = deepcopy(z)
 
-        out[si] = -zs
+        #out[si] = -zs
         for i in range(len(z)):
             if i != si:
-                out[i] = z[i] - self.delta[i] * 2 * zs / (1 + k * zs ** 2)
+                out[i] = z[i] - self.delta[i] * zs / (1 + k * zs ** 2)
+        out[si] = - out[si]
 
         return np.array(out)
 
@@ -414,12 +415,12 @@ class SymSys(object):
         dphi = self.dphi(xval)
         
         # this assumes x = [z, zdot]
-        M = tn.eval(self.Mz, self.z, xval[:self.dim])
-        M = scipy.linalg.block_diag(M, np.eye(self.dim))
-        Mi = np.linalg.inv(M)
+        #M = tn.eval(self.Mz, self.z, xval[:self.dim])
+        #M = scipy.linalg.block_diag(M, np.eye(self.dim))
+        #Mi = np.linalg.inv(M)
         #dphi = matmult(M, dphi)
 
-        out = -np.outer(fp-fm, matmult(Mi, dphi))/matmult(fp, Mi, dphi)
+        out = -np.outer(fp-fm, dphi)/matmult(fp, dphi)
         
         #Tracer()()
         #out = np.zeros((2*self.dim, 2*self.dim))
