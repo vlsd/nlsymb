@@ -3,6 +3,7 @@ from nlsymb import deepcopy, np, sym, scipy, matmult,\
 
 import tensor as tn
 from sympy import Symbol as S
+from sympy import mpmath
 from scipy.integrate import trapz
 
 #from nlsymb import matmult, interxpolate, sysIntegrate, Trajectory
@@ -294,13 +295,20 @@ class SymSys(object):
     # \dot{x}=f(x)
     def _makefp(self, params):
         zdot = self.x[self.dim:]
+
+        si = self.si
+        zs = self.z[si]
+        zds = zdot[si]
+        contactdrag = np.zeros(self.dim)
+        contactdrag[si] = -zds / sym.cosh(10.0 * zs)
+
         out = np.concatenate((zdot,
                               np.dot(self.Mzi,
                                      - tn.einsum(
                                          'i,ijk,k', zdot, self.dMz, zdot)
                                      + tn.einsum(
                                          'i,ikl,k', zdot, self.dMz, zdot) / 2
-                                     + self.dVz)
+                                     + self.dVz + contactdrag)
                               + matmult(
                                   tn.subs(self._dPsi, self.qtoz),
                                   self.Mqi,  # here we might need subs
@@ -318,10 +326,16 @@ class SymSys(object):
 
         zz = self._P
         zzdot = np.dot(self._dP, zdot)
+        
+        si = self.si
+        zzs = zz[si]
+        zzds = zzdot[si]
+        contactdrag = np.zeros(self.dim)
+        contactdrag[si] = -zzds / sym.cosh(10.0 * zzs)
 
         out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
             + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot) / 2
-        out = np.dot(self.Mzzi, out + self.dVzz)
+        out = np.dot(self.Mzzi, out + self.dVzz + contactdrag)
         out = out - tn.einsum('ijk,j,k',
                               tn.diff(self._dP, self.z), zdot, zdot)
         out = out + matmult(OhmI, self.Mqi, self.u)
@@ -345,8 +359,8 @@ class SymSys(object):
         #out[si] = -zs
         for i in range(len(z)):
             if i != si:
-                out[i] = z[i] - self.delta[i] * zs / (1 + k * zs ** 2)
-        out[si] = - out[si]
+                out[i] = z[i] #- self.delta[i] * zs / (1 + k * zs ** 2)
+        out[si] = -zs
 
         return np.array(out)
 
