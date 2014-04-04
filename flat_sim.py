@@ -122,7 +122,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 2)
+    tlims = (0, 10)
     ta, tb = tlims
 
     """

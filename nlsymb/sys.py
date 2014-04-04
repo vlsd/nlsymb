@@ -3,8 +3,8 @@ from nlsymb import deepcopy, np, sym, scipy, matmult,\
 
 import tensor as tn
 from sympy import Symbol as S
-from sympy import mpmath
 from scipy.integrate import trapz
+from sympy import S as symbol
 
 #from nlsymb import matmult, interxpolate, sysIntegrate, Trajectory
 from lqr import LQR, Controller
@@ -299,7 +299,7 @@ class SymSys(object):
         si = self.si
         zs = self.z[si]
         zds = zdot[si]
-        contactdrag = np.zeros(self.dim)
+        contactdrag = self.dim * [symbol.Zero]
         contactdrag[si] = -zds / sym.cosh(10.0 * zs)
 
         out = np.concatenate((zdot,
@@ -330,7 +330,7 @@ class SymSys(object):
         si = self.si
         zzs = zz[si]
         zzds = zzdot[si]
-        contactdrag = np.zeros(self.dim)
+        contactdrag = self.dim * [symbol.Zero]
         contactdrag[si] = -zzds / sym.cosh(10.0 * zzs)
 
         out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
