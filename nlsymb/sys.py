@@ -300,7 +300,7 @@ class SymSys(object):
         zs = self.z[si]
         zds = zdot[si]
         contactdrag = self.dim * [symbol.Zero]
-        contactdrag[si] = -zds / sym.cosh(10.0 * zs)
+        contactdrag[si] = -10.0*zds / ((1+3*sym.exp(zds))*sym.cosh(10.0 * zs))
 
         out = np.concatenate((zdot,
                               np.dot(self.Mzi,
@@ -331,7 +331,7 @@ class SymSys(object):
         zzs = zz[si]
         zzds = zzdot[si]
         contactdrag = self.dim * [symbol.Zero]
-        contactdrag[si] = -zzds / sym.cosh(10.0 * zzs)
+        contactdrag[si] = -10.0*zzds / ((1+3*sym.exp(-zzds))*sym.cosh(10.0 * zzs))
 
         out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
             + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot) / 2
@@ -359,7 +359,7 @@ class SymSys(object):
         #out[si] = -zs
         for i in range(len(z)):
             if i != si:
-                out[i] = z[i] #- self.delta[i] * zs / (1 + k * zs ** 2)
+                out[i] = z[i] - self.delta[i] * zs / (1 + k * zs ** 2)
         out[si] = -zs
 
         return np.array(out)

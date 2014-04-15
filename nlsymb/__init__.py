@@ -246,6 +246,8 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
                 xcross = x[-2] - alpha * (x[-1] - x[-2])
 
                 # replace the wrong values
+                #si = 1
+                #xcross[si] = 0.0
                 t[-1], x[-1] = (tcross, xcross)
 
                 # obtain jump term

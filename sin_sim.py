@@ -62,7 +62,7 @@ def DPlot(tj, s, fig=None, clear=False,
 
 
 def TPlot(tj, s, fig=None, ax=None, init=False,
-          xlims=(-1, 3), ylims=(-2, 2), label="",
+          xlims=(-10, 3), ylims=(-2, 2), label="",
           **kwargs):
     import matplotlib.pyplot as plt
     if fig is None:
@@ -122,7 +122,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 2)
+    tlims = (0, 15)
     ta, tb = tlims
 
     """
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     with Timer("whole program"):
         with Timer("creating symbolic system"):
             #s = FlatFloor2D(k=3)
-            s = SinFloor2D(k=50, g=0.0)
+            s = SinFloor2D(k=10, g=0.0)
 
         # pick an initial point and velocity
         qinit = np.array([0.5, 1.5])
