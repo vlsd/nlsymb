@@ -134,11 +134,11 @@ if __name__ == "__main__":
     with Timer("whole program"):
         with Timer("creating symbolic system"):
             #s = FlatFloor2D(k=3)
-            s = SinFloor2D(k=10, g=0.0)
+            s = SinFloor2D(k=10, g=10.0)
 
         # pick an initial point and velocity
         qinit = np.array([0.5, 1.5])
-        qdoti = np.array([0.0, -1.0])
+        qdoti = np.array([0.0, -3.0])
 
         xinit = np.concatenate((s.Psi(qinit),
                                 np.dot(s.dPsi(qinit), qdoti)))
