@@ -249,6 +249,7 @@ class SymSys(object):
         params = [self.t, self.x, self.u]
 
         self._fplus = self._makefp(params)
+        self._fpexact = self._makefp_exact(params)
         self._fmins = self._makefm(params)
 
         self._dfxp = tn.SymExpr(self._fplus.diff(self.x))
@@ -278,11 +279,11 @@ class SymSys(object):
         self.constraint = tn.subs(self.constraint, self.ztox)
         self.constraint = tn.subs(self.constraint, {self.x[self.si]: symbol.Zero})
         self.constraint = tn.subs(self.constraint, {self.x[self.si+self.dim]: symbol.Zero})
-        self.lam = -self._fplus.expr[self.si+self.dim]/self.constraint[self.si]
+        self.lam = -self._fpexact.expr[self.si+self.dim]/self.constraint[self.si]
         self.lam = tn.subs(self.lam, {self.x[self.si]: symbol.Zero})
         self.lam = tn.subs(self.lam, {self.x[self.si+self.dim]: symbol.Zero})
         self.lam = tn.subs(self.lam, self.ztox)
-        self.dldt = matmult(tn.diff(self.lam, self.x), self._fplus.expr)
+        self.dldt = matmult(tn.diff(self.lam, self.x), self._fpexact.expr)
         self.dldt = tn.subs(self.dldt, self.ztox)
         self.dldt = tn.subs(self.dldt, {self.x[self.si]: symbol.Zero})
         self.dldt = tn.subs(self.dldt, {self.x[self.si+self.dim]: symbol.Zero})
@@ -338,7 +339,32 @@ class SymSys(object):
         out.callable(*params)
         return out
 
+    def _makefp_exact(self, params):
+        zdot = self.x[self.dim:]
+
+        si = self.si
+        zs = self.z[si]
+        zds = zdot[si]
+        
+        out = np.concatenate((zdot,
+                              np.dot(self.Mzi,
+                                     - tn.einsum(
+                                         'i,ijk,k', zdot, self.dMz, zdot)
+                                     + tn.einsum(
+                                         'i,ikl,k', zdot, self.dMz, zdot) / 2
+                                     + self.dVz)
+                              + matmult(
+                                  tn.subs(self._dPsi, self.qtoz),
+                                  self.Mqi,  # here we might need subs
+                                  self.u)
+                              ))
+
+        out = tn.SymExpr(tn.subs(out, self.ztox))
+        out.callable(*params)
+        return out
+
     def _makefm(self, params):
+
         zdot = self.x[self.dim:]
         
         constraint = matmult(self._dPsi, self.Mqi, self.dphiq)
@@ -346,11 +372,11 @@ class SymSys(object):
         constraint = tn.subs(constraint, self.ztox)
         constraint = tn.subs(constraint, {self.x[self.si]: symbol.Zero})
         constraint = tn.subs(constraint, {self.x[self.si+self.dim]: symbol.Zero})
-        lam = -self._fplus.expr[self.si+self.dim]/constraint[self.si]
+        lam = -self._fpexact.expr[self.si+self.dim]/constraint[self.si]
         lam = tn.subs(lam, {self.x[self.si]: symbol.Zero})
         lam = tn.subs(lam, {self.x[self.si+self.dim]: symbol.Zero})
         lam = tn.subs(lam, self.ztox)
-        dldt = matmult(tn.diff(lam, self.x), self._fplus.expr)
+        dldt = matmult(tn.diff(lam, self.x), self._fpexact.expr)
         dldt = tn.subs(dldt, self.ztox)
         dldt = tn.subs(dldt, {self.x[self.si]: symbol.Zero})
         dldt = tn.subs(dldt, {self.x[self.si+self.dim]: symbol.Zero})
