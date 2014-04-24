@@ -2,6 +2,7 @@
 # will not work with python3.3
 # TODO figure out why!?
 
+import sys
 import numpy as np
 import sympy as sym
 from sympy import Symbol as S
@@ -62,7 +63,7 @@ def DPlot(tj, s, fig=None, clear=False,
 
 
 def TPlot(tj, s, fig=None, ax=None, init=False,
-          xlims=(-3.1, 0.2), ylims=(-1.6, 1.1), label="",
+          xlims=(-10, 3), ylims=(-2, 2), label="",
           **kwargs):
     import matplotlib.pyplot as plt
     if fig is None:
@@ -107,7 +108,6 @@ def quickPlot():
     return fig
 
 if __name__ == "__main__":
-
     import matplotlib.pyplot as plt
     import time
     import pickle
@@ -123,7 +123,14 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 1.9)
+    # load the reference (target) trajectory
+    ref_fn = sys.argv[1]   
+    ref_file = open(ref_fn, 'rb')
+    ref = pickle.load(ref_file)
+    ref_file.close()
+
+
+    tlims = (0, 5)
     ta, tb = tlims
 
     """
@@ -137,10 +144,6 @@ if __name__ == "__main__":
             #s = FlatFloor2D(k=3)
             s = SinFloor2D(k=3)
 
-        # load the reference (target) trajectory
-        ref_file = open('pkl/sin_forced.p', 'rb')
-        ref = pickle.load(ref_file)
-        ref_file.close()
         # ref.xtonq(s)
         ref.interpolate()
         ref.tlims = tlims
@@ -155,12 +158,12 @@ if __name__ == "__main__":
         itj = Trajectory('x', 'u')
         #tmid1 = (2*tlims[0] + tlims[1])/3
         #tmid2 = (tlims[0] + 2*tlims[1])/3
-        itj.addpoint(tlims[0], x=ref.x(tlims[0]), u=np.array([0.0, 0.0]))
+        itj.addpoint(tlims[0], x=xinit, u=np.array([0.0, 0.0]))
         #itj.addpoint(tmid1,    x=ref.x(tmid1),    u=np.array([0.0, 0.0]))
         #itj.addpoint(tmid2,    x=ref.x(tmid2),    u=np.array([0.0, 0.0]))
         # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
         # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
-        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.0, 0.0]))
+        itj.addpoint(tlims[1], x=xinit, u=np.array([0.0, 0.0]))
         itj.xtoq(s)
         itj.interpolate()
 

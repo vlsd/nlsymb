@@ -137,8 +137,8 @@ if __name__ == "__main__":
             s = SinFloor2D(k=10, g=10.0)
 
         # pick an initial point and velocity
-        qinit = np.array([0.0, 1.5])
-        qdoti = np.array([0.0, -10.0])
+        qinit = np.array([-2.5*np.pi, 1])
+        qdoti = np.array([0.0, 0.0])
 
         xinit = np.concatenate((s.Psi(qinit),
                                 np.dot(s.dPsi(qinit), qdoti)))
