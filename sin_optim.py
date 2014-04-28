@@ -130,7 +130,7 @@ if __name__ == "__main__":
     ref_file.close()
 
 
-    tlims = (0, 5)
+    tlims = (0, 10)
     ta, tb = tlims
 
     """
@@ -173,9 +173,10 @@ if __name__ == "__main__":
         nlsys.ref = ref
         nlsys.delf = s.delf
 
-        Rcost = lambda t: np.diag([10, 10])
-        Qcost = lambda t: np.diag([10, 10, 1, 1])
+        Rcost = lambda t: np.diag([5, 5])
+        Qcost = lambda t: np.diag([50, 1, 1, 1])
 
+        #PTcost = np.diag([50, 1, 1, 1])
         PTcost = Qcost(tb)
 
         # zerocontrol = Controller(reference=ref)
@@ -238,6 +239,11 @@ if __name__ == "__main__":
                 tj = nlsys.project(tj, tlims=tlims, lin=True)
                 trajectories.append(tj)
 
+            with Timer("saving trajectory to file"): 
+                ofile = open('pkl/sin_plastic_opt_tj.p','wb')
+                pickle.dump(tj, ofile)
+                ofile.close()
+
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
             q = lambda t: matmult(tj.x(t) - ref.x(t), Qcost(t))
             r = lambda t: matmult(tj.u(t) - ref.u(t), Rcost(t))
@@ -247,6 +253,10 @@ if __name__ == "__main__":
                                     q=q, r=r, qf=qf)
             descdir.solve()
 
+    with Timer("saving all trajectories"):
+        ofile = open('pkl/sin_plastic_opt_tjs.p', 'wb')
+        pickle.dump(trajectories, ofile)
+        ofile.close()
 
     # tjt = tj
 

@@ -172,6 +172,10 @@ class LineSearch():
             except TimeoutError:
                 gamma = gamma / 10
                 print("Timed out, decreasing gamma to %e" % gamma)
+            except OverflowError:
+                gamma = gamma / 10
+                print("Error in VODE, decreasing gamma to %e" % gamma)
+
         self.gamma = gamma
 
 
@@ -258,8 +262,8 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
 
                 # reset integration
                 solver.set_initial_value(xcross, tcross)
-                #if debug:
-                print("found intersection at t=%f" % tcross)
+                if debug:
+                    print("found intersection at t=%f" % tcross)
             #separation
             elif dp==0 and dn > 0:
                 # right now the dynamics should take care of this

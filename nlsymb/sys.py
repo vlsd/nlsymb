@@ -128,7 +128,7 @@ class System(object):
         traj.jumps = jumps
         return traj
 
-    @timeout(30000)
+    @timeout(100)
     def project(self, traj, tlims=None, lin=False):
         if traj.feasible:
             return traj
@@ -497,7 +497,7 @@ class SymSys(object):
         #out = np.zeros((2*self.dim, 2*self.dim))
         #for i in range(self.dim):
         #    out[self.si, i] = -M[self.si, i]
-        return out
+        return 0.0*out
 
 
 class SinFloor2D(SymSys):
