@@ -173,7 +173,7 @@ if __name__ == "__main__":
         nlsys.ref = ref
         nlsys.delf = s.delf
 
-        Rcost = lambda t: np.diag([10, 10])
+        Rcost = lambda t: np.diag([1, 1])
         Qcost = lambda t: np.diag([10, 10, 1, 1])
 
         PTcost = Qcost(tb)

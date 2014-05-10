@@ -172,6 +172,10 @@ class LineSearch():
             except TimeoutError:
                 gamma = gamma / 10
                 print("Timed out, decreasing gamma to %e" % gamma)
+            except OverflowError:
+                gamma = gamma / 10
+                print("Error in VODE, decreasing gamma to %e" % gamma)
+
         self.gamma = gamma
 
 

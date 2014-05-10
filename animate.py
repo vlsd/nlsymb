@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     tmin = lintraj._t[0]
     tmax = lintraj._t[-1]
-    rate = 90.0  # in frames per second
+    rate = 30.0  # in frames per second
 
     ani = animation.FuncAnimation(fig, animate,
                                   frames=int(rate * (tmax - tmin)),
@@ -93,6 +93,6 @@ if __name__ == "__main__":
                                   init_func=init, repeat=True)
 
     # dpi = 720/height in inches for 720p output
-    ani.save('sim_super_slow.mp4', fps=30, bitrate=7500, dpi=160)
+    ani.save('sim_real_time.mp4', fps=30, bitrate=7500, dpi=160)
 
     plt.close()

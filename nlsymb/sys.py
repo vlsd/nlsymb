@@ -294,7 +294,7 @@ class SymSys(object):
         return self._ohm(*pz)
 
     def xtopz(self, x):
-        return self.P(x[:self.dim])
+        return self.P(x)[:self.dim]
 
     def xtoq(self, x):
         q = x[:self.dim]
