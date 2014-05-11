@@ -192,6 +192,9 @@ class Timer():
         print(self.fmts % delta)
 
 
+def plasticResetMap(sys, x):
+    return sys.resetMap(x, cor=0)
+
 def sysIntegrate(func, init, control=None, phi=None, debug=False, 
                  tlims=(0, 10), jac=None, method='bdf', **kw):
     """
@@ -226,6 +229,8 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
     jumps_out = []
     jumps_in = kw['jumps'] if 'jumps' in kw else []
 
+    sys = kw['sys'] if 'sys' in kw else None
+
     while solver.successful() and solver.t < tf + 1e-2:
         solver.integrate(tf, relax=True, step=True)
         
@@ -249,9 +254,14 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
                 tcross = t[-2] - alpha * (t[-1] - t[-2])
                 xcross = x[-2] - alpha * (x[-1] - x[-2])
 
-                # replace the wrong values
-                #si = 1
-                #xcross[si] = 0.0
+                # discontinuous jump, to be used only
+                # when simulating (who knows what it might do for control
+                # synthesis)
+                if sys is None:
+                    raise NameError('plastic impact sim requires sys to be passed')
+                else:
+                    xcross = plasticResetMap(sys, xcross)
+                
                 t[-1], x[-1] = (tcross, xcross)
 
                 # obtain jump term

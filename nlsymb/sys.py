@@ -44,6 +44,8 @@ class System(object):
         else:
             self.dimu = len(self.dimu(tlims[0]))
 
+        self.sys = kwargs['sys'] if 'sys' in kwargs else None
+        
     # to be called after a reference has been set
     def build_cost(self, **kwargs):
         self.cost = CostFunction(self.dim, self.dimu, self.ref,
@@ -86,10 +88,11 @@ class System(object):
         if self.delf is not None:
             delfunc = lambda t, x: self.delf(t, x, self.ufun(t, x))
             (t, x, jumps) = sysIntegrate(func, self.xinit, tlims=self.tlims,
-                                     phi=self.phi, jac=jac, delfunc=delfunc)
+                                     phi=self.phi, jac=jac, delfunc=delfunc,
+                                        sys=self.sys)
         else:
             (t, x, jumps) = sysIntegrate(func, self.xinit, tlims=self.tlims,
-                                     phi=self.phi, jac=jac)
+                                     phi=self.phi, jac=jac, sys=self.sys)
 
 
         #Tracer()()
@@ -248,7 +251,9 @@ class SymSys(object):
         '''
         params = [self.t, self.x, self.u]
 
-        self._fplus = self._makefp(params)
+        # TODO: make both these functions into one
+        # and pass a flag whether to approximate or not
+        self._fplus = self._makefp_exact(params)
         self._fpexact = self._makefp_exact(params)
         self._fmins = self._makefm(params)
 
@@ -288,6 +293,28 @@ class SymSys(object):
         self.dldt = tn.subs(self.dldt, {self.x[self.si]: symbol.Zero})
         self.dldt = tn.subs(self.dldt, {self.x[self.si+self.dim]: symbol.Zero})
 
+    # do an elastic impact by default
+    def resetMap(self, xval, cor = 1):
+        xout = deepcopy(xval)
+        zval = xval[:self.dim]
+        zdot = xval[-self.dim:]
+
+
+        # keep just the first part, the rest is zero anyway
+        dphi = self.dphi(xval)[:self.dim]
+        
+        # this assumes x = [z, zdot]
+        Mi = tn.eval(self.Mzi, self.z, zval)
+        #Mi = np.linalg.inv(M)
+        #dphi = matmult(M, dphi)
+
+
+        midp = matmult(Mi, dphi)
+        xout[-self.dim:] = zdot - (1+cor) * \
+                matmult(np.outer(midp, dphi), zdot)/np.inner(midp, dphi)
+        
+        return xout
+    
     # this function takes and returns numerical values
     def xtopq(self, x):
         pz = self.P(x)[:self.dim]
