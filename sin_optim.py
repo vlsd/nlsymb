@@ -185,8 +185,8 @@ if __name__ == "__main__":
         Rcost = lambda t: np.diag([100, 100])
         Qcost = lambda t: np.diag([100, 100, 1, 1])
 
-        #PTcost = np.diag([50, 1, 1, 1])
-        PTcost = Qcost(tb)
+        PTcost = np.diag([0, 0, 0, 0])
+        #PTcost = Qcost(tb)
 
         # zerocontrol = Controller(reference=ref)
         # nlsys.set_u(zerocontrol)

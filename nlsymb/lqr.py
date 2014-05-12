@@ -79,8 +79,8 @@ class CDRE(object):
             #care.solve()
             #self.Pb = care.P
             #self.Pb = np.eye(n)/100.0
-            #self.Pb = np.zeros((n,n))
-            self.Pb = self.Q(tb)
+            self.Pb = np.zeros((n,n))
+            #self.Pb = self.Q(tb)
 
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
