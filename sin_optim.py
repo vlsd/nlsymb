@@ -127,6 +127,7 @@ if __name__ == "__main__":
     ref_fn = sys.argv[1]   
     ref_file = open(ref_fn, 'rb')
     ref = pickle.load(ref_file)
+    ref.feasible = False # let's not assume feasibility
     ref_file.close()
 
 
@@ -148,22 +149,30 @@ if __name__ == "__main__":
         ref.interpolate()
         ref.tlims = tlims
 
-        # make an initial guess trajectory
-        qinit = np.array([0.0, 1.0])
-        qdoti = np.array([0.0, 0.0])
 
-        xinit = np.concatenate((s.Psi(qinit),
-                                np.dot(s.dPsi(qinit), qdoti)))
+        if len(sys.argv)>2:
+            # initial trajectory was passed to us, use it
+            init_file = open(sys.argv[2], 'rb')
+            itj = pickle.load(init_file)
+            init_file.close()
+            itj.feasible = False # let's not assume feasibility
+        else:
+            # make an initial guess trajectory
+            qinit = np.array([0.0, 1.0])
+            qdoti = np.array([0.0, 0.0])
 
-        itj = Trajectory('x', 'u')
-        #tmid1 = (2*tlims[0] + tlims[1])/3
-        #tmid2 = (tlims[0] + 2*tlims[1])/3
-        itj.addpoint(tlims[0], x=xinit, u=np.array([0.0, 0.0]))
-        #itj.addpoint(tmid1,    x=ref.x(tmid1),    u=np.array([0.0, 0.0]))
-        #itj.addpoint(tmid2,    x=ref.x(tmid2),    u=np.array([0.0, 0.0]))
-        # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
-        # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
-        itj.addpoint(tlims[1], x=xinit, u=np.array([0.0, 0.0]))
+            xinit = np.concatenate((s.Psi(qinit),
+                                    np.dot(s.dPsi(qinit), qdoti)))
+
+            itj = Trajectory('x', 'u')
+            #tmid1 = (2*tlims[0] + tlims[1])/3
+            #tmid2 = (tlims[0] + 2*tlims[1])/3
+            itj.addpoint(tlims[0], x=xinit, u=np.array([0.0, 0.0]))
+            #itj.addpoint(tmid1,    x=ref.x(tmid1),    u=np.array([0.0, 0.0]))
+            #itj.addpoint(tmid2,    x=ref.x(tmid2),    u=np.array([0.0, 0.0]))
+            # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
+            # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
+            itj.addpoint(tlims[1], x=xinit, u=np.array([0.0, 0.0]))
         itj.xtoq(s)
         itj.interpolate()
 
