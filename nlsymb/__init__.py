@@ -226,7 +226,7 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
     jumps_out = []
     jumps_in = kw['jumps'] if 'jumps' in kw else []
 
-    while solver.successful() and solver.t < tf + 1e-2:
+    while solver.successful() and solver.t <= tf:
         solver.integrate(tf, relax=True, step=True)
         
         xx = solver.y

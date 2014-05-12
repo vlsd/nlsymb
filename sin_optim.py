@@ -233,7 +233,7 @@ if __name__ == "__main__":
                           colored("%f" % ddircost, 'yellow'))
 
                 if ls is None:
-                    alpha = 100 / ddircost
+                    alpha = 10000 / ddircost
                 else:
                     alpha = ls.gamma * 10
                 ls = LineSearch(cost, cost.grad, alpha=alpha, beta=1e-8)
