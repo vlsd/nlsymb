@@ -113,7 +113,7 @@ class CDRE(object):
         self._Ptj = Trajectory('P')
         results = [(-sb, self.Pb)]
 
-        while solver.successful() and solver.t < sa + 1e-2:
+        while solver.successful() and solver.t <= sa:
             solver.integrate(sa, step=True)
             P = solver.y.reshape((n, n))
         
@@ -223,7 +223,7 @@ class LQ(LQR):
         solver.set_initial_value(self.qf, sb)
 
         results = [(-sb, self.qf)]
-        while solver.successful() and solver.t < sa + 1e-2:
+        while solver.successful() and solver.t <= sa:
             solver.integrate(sa, step=True)
             b = solver.y
 
