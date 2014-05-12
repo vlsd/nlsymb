@@ -119,6 +119,7 @@ class System(object):
 
         if lin:
             print("linearizing...")
+            #Tracer()()
             self.lintraj = traj
             self.regulator = LQR(self.tlims, traj.A, traj.B)
             self.regulator.solve()

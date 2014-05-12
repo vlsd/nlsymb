@@ -74,12 +74,13 @@ class CDRE(object):
             self.Pb = kwargs['Pb']
         else:
             # obtain P from an algebraic ricatti at tb
-            #care = CARE(self.A(ta), self.B(ta), R=self.R(ta),
-            #            Q=self.Q(ta))
+            #care = CARE(self.A(tb), self.B(tb), R=self.R(tb),
+                        #Q=self.Q(tb))
             #care.solve()
             #self.Pb = care.P
             #self.Pb = np.eye(n)/100.0
-            self.Pb = np.zeros((n,n))
+            #self.Pb = np.zeros((n,n))
+            self.Pb = self.Q(tb)
 
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
