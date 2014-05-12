@@ -156,7 +156,7 @@ if __name__ == "__main__":
         nlsys.delf = s.delf
 
         zerocontrol = lambda t,x: np.array([0,0])
-        control = Controller(reference=approx)
+        control = Controller(reference=approx, K=approx.K)
         nlsys.set_u(control)
 
         # integrate, but don't linearize

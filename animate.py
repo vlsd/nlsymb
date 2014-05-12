@@ -15,13 +15,16 @@ def init():
     zzmass.set_data([], [])
     zztraj.set_data([], [])
 
-    return qmass, qtraj, zmass, ztraj
+    #qxforce = axl.arrow(0, 0, 0, 0)
+
+    return qmass, qtraj, zmass, ztraj 
 
 
 def animate(i):
     t = float(i) / rate
     newPq = s.xtopq(lintraj.x(t))
     newqq = s.xtoq(lintraj.x(t))
+    uval = lintraj.u(t)
 
     qmass.set_data(newPq)
     qtraj.set_data(qtraj.get_xdata() + [newPq[0]],
@@ -30,6 +33,11 @@ def animate(i):
     qqmass.set_data(newqq)
     qqtraj.set_data(qqtraj.get_xdata() + [newqq[0]],
                     qqtraj.get_ydata() + [newqq[1]])
+
+    for artist in axl.artists:
+        artist.remove()
+    qxforce = axl.arrow(newPq[0], newPq[1], 0.5*uval[0], 0.5*uval[1],
+                        length_includes_head=True, width=0.01)
 
     newPz = s.xtopz(lintraj.x(t))
     newzb = s.xtoz(lintraj.x(t))
@@ -42,7 +50,7 @@ def animate(i):
     zztraj.set_data(zztraj.get_xdata() + [newzb[0]],
                     zztraj.get_ydata() + [newzb[1]])
 
-    return qmass, qtraj, zmass, ztraj, qqmass, qqtraj, zzmass, zztraj
+    return qmass, qtraj, zmass, ztraj, qqmass, qqtraj, zzmass, zztraj, qxforce
 
 
 if __name__ == "__main__":
@@ -70,6 +78,8 @@ if __name__ == "__main__":
     qqmass, = axl.plot([], [], 'ro', ms=6)
     qqtraj, = axl.plot([], [], 'r--', lw=1)
     qtraj, = axl.plot([], [], 'b-', lw=1)
+    qxforce = axl.arrow(0, 0, 1, 1)
+
     sinfloor = axl.fill_between(xarray, ymin, np.sin(xarray),
                                 facecolor='grey', alpha=0.5)
     sinlabel = axl.text(-6, -4, r"$\phi(q)<0$")
