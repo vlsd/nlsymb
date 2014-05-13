@@ -84,8 +84,8 @@ class CDRE(object):
 
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
-        #else:
-        self.jumps = []
+        else:
+            self.jumps = []
 
     def _Pdot(self, s, P):
         A, B = self.A(-s), self.B(-s)
@@ -126,7 +126,7 @@ class CDRE(object):
                         print('found a jump in P')
                         #  positive sign because backwards integration
                         #P = P + matmult(fj.T, P) + matmult(P, fj)
-                        P = 0.0*P
+                        P = self.Pb
                         solver.set_initial_value(P.ravel(), solver.t) 
             
             results.append((-solver.t, P))
