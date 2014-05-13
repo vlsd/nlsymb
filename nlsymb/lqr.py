@@ -123,8 +123,9 @@ class CDRE(object):
                 prevtime = results[-1][0]  # replace with call to _bt.tmin
                 for (tj, fj) in self.jumps:
                     if prevtime > tj and tj > -solver.t:
+                        print('found a jump in P')
                         #  positive sign because backwards integration
-                        P = P + matmult(fj.T, P) + matmult(P, fj)
+                        #P = P + matmult(fj.T, P) + matmult(P, fj)
                         P = 0.0*P
                         solver.set_initial_value(P.ravel(), solver.t) 
             
@@ -236,7 +237,7 @@ class LQ(LQR):
                     if prevtime > tj and tj > -solver.t:
                         # positive sign because backwards integration
                         b = b + matmult(fj.T, b)
-                        b = 0.0*b
+                        #b = 0.0*b
                         solver.set_initial_value(b, solver.t) 
 
             results.append((-solver.t, b))
