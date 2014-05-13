@@ -498,7 +498,7 @@ class SymSys(object):
         #out = np.zeros((2*self.dim, 2*self.dim))
         #for i in range(self.dim):
         #    out[self.si, i] = -M[self.si, i]
-        return 0.0*out
+        return out
 
 
 class SinFloor2D(SymSys):
