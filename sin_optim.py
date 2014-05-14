@@ -131,7 +131,7 @@ if __name__ == "__main__":
     ref_file.close()
 
 
-    tlims = (0, 10)
+    tlims = (0, 5)
     ta, tb = tlims
 
     """
@@ -182,8 +182,8 @@ if __name__ == "__main__":
         nlsys.ref = ref
         nlsys.delf = s.delf
 
-        Rcost = lambda t: np.diag([100, 100])
-        Qcost = lambda t: np.diag([100, 100, 1, 1])
+        Rcost = lambda t: np.diag([1, 1])
+        Qcost = lambda t: np.diag([1000, 700, 0.1, 0.1])
 
         PTcost = np.diag([0, 0, 0, 0])
         #PTcost = Qcost(tb)
@@ -218,10 +218,10 @@ if __name__ == "__main__":
 
         index = 0
         ls = None
-        while ddircost > 1e-7:
+        while ddircost > 1:
             index = index + 1
 
-            with Timer("descent direction and line search "):
+            with Timer("line search "):
                 if index is not 1:
                     costs.append(cost(tj))
                     print("[cost]\t\t" + colored("%f" % costs[-1], 'blue'))
@@ -258,9 +258,10 @@ if __name__ == "__main__":
             r = lambda t: matmult(tj.u(t) - ref.u(t), Rcost(t))
             qf = matmult(tj.x(tb) - ref.x(tb), PTcost)
 
-            descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
-                                    q=q, r=r, qf=qf)
-            descdir.solve()
+            with Timer("descent direction"):
+                descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
+                                        q=q, r=r, qf=qf)
+                descdir.solve()
 
     with Timer("saving all trajectories"):
         ofile = open('pkl/sin_plastic_opt_tjs.p', 'wb')
