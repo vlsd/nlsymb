@@ -403,7 +403,7 @@ class SymSys(object):
         # set this as a feedback equation, so that xdot will asymptotically
         # approach lambda, hopefully crossing zero at the same time!
         out[self.si+self.dim]= dldt - 100*(self.x[self.si+self.dim] + lam)
-        out[self.si] = dldt - 100*(self.x[self.si] + lam)
+        out[self.si] = symbol.Zero 
         out = tn.subs(out, self.ztox)
         out = tn.SymExpr(tn.subs(out, self.ztox))
         out.callable(*params)
@@ -428,7 +428,7 @@ class SymSys(object):
         # choose between _fplus and _fmins
         # depending on the configuration
         # assume that ctrl is a rule for substituting u
-        if xval[self.si] <= 0: # and xval[self.si+self.dim] <= 0:
+        if xval[self.si] <= 0 and xval[self.si+self.dim] <= 0:
             func = self._fmins.func
         else:
             func = self._fplus.func
@@ -457,7 +457,7 @@ class SymSys(object):
 
     def P(self, xval):
         # choose between identity and fancy projection
-        if xval[self.si] <= 0: #  and xval[self.si+self.dim] <= 0:
+        if xval[self.si] <= 0 and xval[self.si+self.dim] <= 0:
             expr = self._P
             vals = xval
             params = self.x
