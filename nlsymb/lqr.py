@@ -82,6 +82,7 @@ class CDRE(object):
             self.Pb = np.zeros((n,n))
             #self.Pb = self.Q(tb)
 
+        print('kwargs')
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
         else:

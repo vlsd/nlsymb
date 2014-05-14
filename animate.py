@@ -20,8 +20,8 @@ def init():
 
 def animate(i):
     t = float(i) / rate
-    newPq = s.xtopq(lintraj.x(t))
-    newqq = s.xtoq(lintraj.x(t))
+    newPq = s.xtopq(itj.x(t))
+    newqq = s.xtoq(itj.x(t))
 
     qmass.set_data(newPq)
     qtraj.set_data(qtraj.get_xdata() + [newPq[0]],
@@ -31,8 +31,8 @@ def animate(i):
     qqtraj.set_data(qqtraj.get_xdata() + [newqq[0]],
                     qqtraj.get_ydata() + [newqq[1]])
 
-    newPz = s.xtopz(lintraj.x(t))
-    newzb = s.xtoz(lintraj.x(t))
+    newPz = s.xtopz(itj.x(t))
+    newzb = s.xtoz(itj.x(t))
 
     zmass.set_data(newPz)
     ztraj.set_data(ztraj.get_xdata() + [newPz[0]],
@@ -83,8 +83,8 @@ if __name__ == "__main__":
     zztraj, = axr.plot([], [], 'r--', lw=1)
     ztraj, = axr.plot([], [], 'b-', lw=1)
 
-    tmin = lintraj._t[0]
-    tmax = lintraj._t[-1]
+    tmin = itj._t[0]
+    tmax = itj._t[-1]
     rate = 30.0  # in frames per second
 
     ani = animation.FuncAnimation(fig, animate,
