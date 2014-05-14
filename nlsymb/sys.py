@@ -129,7 +129,7 @@ class System(object):
         traj.jumps = jumps
         return traj
 
-    @timeout(100)
+    @timeout(300)
     def project(self, traj, tlims=None, lin=False):
         if traj.feasible:
             return traj
