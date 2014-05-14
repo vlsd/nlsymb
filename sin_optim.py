@@ -182,11 +182,11 @@ if __name__ == "__main__":
         nlsys.ref = ref
         nlsys.delf = s.delf
 
-        Rcost = lambda t: np.diag([5, 5])
-        Qcost = lambda t: np.diag([100, 70, 1, 1])
+        Rcost = lambda t: np.diag([1, 1])
+        Qcost = lambda t: np.diag([1000, 700, 0.1, 0.1])
 
-        PTcost = np.diag([1, 1, 1, 1])
-        #PTcost = 1e-3*Qcost(tb)
+        PTcost = np.diag([0, 0, 0, 0])
+        #PTcost = Qcost(tb)
 
         # zerocontrol = Controller(reference=ref)
         # nlsys.set_u(zerocontrol)
