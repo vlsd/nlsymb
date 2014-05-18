@@ -69,8 +69,8 @@ if __name__ == "__main__":
     atj.interpolate()
 
     fig = plt.figure(figsize=(8, 4.5))  # 16:9 ratio
-    xmin = -3 * np.pi
-    xmax = np.pi
+    xmin = -10# -3 * np.pi
+    xmax = 2 #np.pi
     ymin = -6
     ymax = 6
     axl = fig.add_subplot(121, xlim=(xmin, xmax), ylim=(ymin, ymax),
@@ -97,10 +97,16 @@ if __name__ == "__main__":
     sinfloor = axl.fill_between(xarray, ymin, np.sin(xarray),
                                 facecolor='grey', alpha=0.5)
     sinlabel = axl.text(-6, -4, r"$\phi(q)<0$")
+    rtoq = s.xtoq(rtj.x(tmin))
+    axl.plot(rtoq[0], rtoq[1], 'bx', lw=6)
+
 
     flatfloor = axr.fill_between(xarray, ymin, 0 * xarray,
                                  facecolor='grey', alpha=0.5)
     flatlabel = axr.text(-6, -4, r'$\bar{\phi}(\bar{q})<0$')
+    rtoz = s.xtoz(rtj.x(tmin))
+    axr.plot(rtoz[0], rtoz[1], 'bx', lw=6)
+
 
     zmass, = axr.plot([], [], 'bo', ms=6)
     zzmass, = axr.plot([], [], 'ro', ms=6)
