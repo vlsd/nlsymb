@@ -68,6 +68,10 @@ if __name__ == "__main__":
     infile.close()
     atj.interpolate()
 
+    tmin = atj._t[0]
+    tmax = atj._t[-1]
+    rate = 30.0  # in frames per second
+    
     fig = plt.figure(figsize=(8, 4.5))  # 16:9 ratio
     xmin = -10# -3 * np.pi
     xmax = 2 #np.pi
@@ -113,9 +117,6 @@ if __name__ == "__main__":
     zztraj, = axr.plot([], [], 'r--', lw=1)
     ztraj, = axr.plot([], [], 'b-', lw=1)
 
-    tmin = atj._t[0]
-    tmax = atj._t[-1]
-    rate = 30.0  # in frames per second
 
     ani = animation.FuncAnimation(fig, animate,
                                   frames=int(rate * (tmax - tmin)),
