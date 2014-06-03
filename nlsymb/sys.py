@@ -4,6 +4,7 @@ from nlsymb import deepcopy, np, sym, scipy, matmult,\
 import tensor as tn
 from sympy import Symbol as S
 from scipy.integrate import trapz
+from sympy import S as symbol
 
 #from nlsymb import matmult, interxpolate, sysIntegrate, Trajectory
 from lqr import LQR, Controller
@@ -127,7 +128,7 @@ class System(object):
         traj.jumps = jumps
         return traj
 
-    @timeout(30000)
+    @timeout(100)
     def project(self, traj, tlims=None, lin=False):
         if traj.feasible:
             return traj
