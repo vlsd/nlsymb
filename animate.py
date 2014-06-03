@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from numpy import shape
 import numpy as np
+import pickle
 
 
 def init():
@@ -15,13 +16,16 @@ def init():
     zzmass.set_data([], [])
     zztraj.set_data([], [])
 
-    return qmass, qtraj, zmass, ztraj
+    #qxforce = axl.arrow(0, 0, 0, 0)
+
+    return qmass, qtraj, zmass, ztraj 
 
 
 def animate(i):
     t = float(i) / rate
-    newPq = s.xtopq(itj.x(t))
-    newqq = s.xtoq(itj.x(t))
+    newPq = s.xtopq(atj.x(t))
+    newqq = s.xtoq(atj.x(t))
+    uval = atj.u(t)
 
     qmass.set_data(newPq)
     qtraj.set_data(qtraj.get_xdata() + [newPq[0]],
@@ -31,8 +35,13 @@ def animate(i):
     qqtraj.set_data(qqtraj.get_xdata() + [newqq[0]],
                     qqtraj.get_ydata() + [newqq[1]])
 
-    newPz = s.xtopz(itj.x(t))
-    newzb = s.xtoz(itj.x(t))
+    for artist in axl.artists:
+        artist.remove()
+    qxforce = axl.arrow(newPq[0], newPq[1], 0.5*uval[0], 0.5*uval[1],
+                        length_includes_head=True, width=0.01)
+
+    newPz = s.xtopz(atj.x(t))
+    newzb = s.xtoz(atj.x(t))
 
     zmass.set_data(newPz)
     ztraj.set_data(ztraj.get_xdata() + [newPz[0]],
@@ -42,13 +51,30 @@ def animate(i):
     zztraj.set_data(zztraj.get_xdata() + [newzb[0]],
                     zztraj.get_ydata() + [newzb[1]])
 
-    return qmass, qtraj, zmass, ztraj, qqmass, qqtraj, zzmass, zztraj
+    return qmass, qtraj, zmass, ztraj, qqmass, qqtraj, zzmass, zztraj, qxforce
 
 
 if __name__ == "__main__":
+    # parse command line arguments
+    # first is the reference trajectory
+    infile = open(sys.argv[1], 'rb')
+    rtj = pickle.load(infile)
+    infile.close()
+    rtj.interpolate()
+
+    # now load the animation trajectory
+    infile = open(sys.argv[2], 'rb')
+    atj = pickle.load(infile)
+    infile.close()
+    atj.interpolate()
+
+    tmin = atj._t[0]
+    tmax = atj._t[-1]
+    rate = 30.0  # in frames per second
+    
     fig = plt.figure(figsize=(8, 4.5))  # 16:9 ratio
-    xmin = -3 * np.pi
-    xmax = np.pi
+    xmin = -10# -3 * np.pi
+    xmax = 2 #np.pi
     ymin = -6
     ymax = 6
     axl = fig.add_subplot(121, xlim=(xmin, xmax), ylim=(ymin, ymax),
@@ -70,22 +96,27 @@ if __name__ == "__main__":
     qqmass, = axl.plot([], [], 'ro', ms=6)
     qqtraj, = axl.plot([], [], 'r--', lw=1)
     qtraj, = axl.plot([], [], 'b-', lw=1)
+    qxforce = axl.arrow(0, 0, 1, 1)
+
     sinfloor = axl.fill_between(xarray, ymin, np.sin(xarray),
                                 facecolor='grey', alpha=0.5)
     sinlabel = axl.text(-6, -4, r"$\phi(q)<0$")
+    rtoq = s.xtoq(rtj.x(tmin))
+    axl.plot(rtoq[0], rtoq[1], 'bx', lw=6)
+
 
     flatfloor = axr.fill_between(xarray, ymin, 0 * xarray,
                                  facecolor='grey', alpha=0.5)
     flatlabel = axr.text(-6, -4, r'$\bar{\phi}(\bar{q})<0$')
+    rtoz = s.xtoz(rtj.x(tmin))
+    axr.plot(rtoz[0], rtoz[1], 'bx', lw=6)
+
 
     zmass, = axr.plot([], [], 'bo', ms=6)
     zzmass, = axr.plot([], [], 'ro', ms=6)
     zztraj, = axr.plot([], [], 'r--', lw=1)
     ztraj, = axr.plot([], [], 'b-', lw=1)
 
-    tmin = itj._t[0]
-    tmax = itj._t[-1]
-    rate = 30.0  # in frames per second
 
     ani = animation.FuncAnimation(fig, animate,
                                   frames=int(rate * (tmax - tmin)),
