@@ -82,7 +82,6 @@ class CDRE(object):
             self.Pb = np.zeros((n,n))
             #self.Pb = self.Q(tb)
 
-        print('kwargs')
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
         else:
@@ -125,8 +124,8 @@ class CDRE(object):
                 for (tj, fj) in self.jumps:
                     if prevtime > tj and tj > -solver.t:
                         #  positive sign because backwards integration
-                        P = P - matmult(fj.T, P) - matmult(P, fj)
-                        #P = P
+                        #P = P + matmult(fj.T, P) + matmult(P, fj)
+                        P = P
                         solver.set_initial_value(P.ravel(), solver.t) 
             
             results.append((-solver.t, P))
@@ -236,8 +235,8 @@ class LQ(LQR):
                 for (tj, fj) in self.jumps:
                     if prevtime > tj and tj > -solver.t:
                         # positive sign because backwards integration
-                        b = b - matmult(fj.T, b)
-                        #b = b
+                        #b = b + matmult(fj.T, b)
+                        b = b
                         solver.set_initial_value(b, solver.t) 
 
             results.append((-solver.t, b))

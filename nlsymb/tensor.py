@@ -19,6 +19,7 @@ def lambdify(vars, expr):
         func[...] = slambdify(vars, x)
 
     tensor_of_lambdas = it.operands[-1]
+    express = expr
 
     def thread(*args):
         it = np.nditer([tensor_of_lambdas, None],

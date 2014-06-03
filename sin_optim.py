@@ -131,7 +131,7 @@ if __name__ == "__main__":
     ref_file.close()
 
 
-    tlims = (0, 5)
+    tlims = (0, 10)
     ta, tb = tlims
 
     """
@@ -182,8 +182,8 @@ if __name__ == "__main__":
         nlsys.ref = ref
         nlsys.delf = s.delf
 
-        Rcost = lambda t: np.diag([1, 1])
-        Qcost = lambda t: np.diag([1000, 700, 0.1, 0.1])
+        Rcost = lambda t: np.diag([5, 5])
+        Qcost = lambda t: t*np.diag([100, 200, 1, 1])/tb
 
         PTcost = np.diag([0, 0, 0, 0])
         #PTcost = Qcost(tb)
@@ -233,7 +233,7 @@ if __name__ == "__main__":
                           colored("%f" % ddircost, 'yellow'))
 
                 if ls is None:
-                    alpha = 10000 / ddircost
+                    alpha = 1 / ddircost
                 else:
                     alpha = ls.gamma * 10
                 ls = LineSearch(cost, cost.grad, alpha=alpha, beta=1e-8)
