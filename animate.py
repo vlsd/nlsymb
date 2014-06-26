@@ -3,6 +3,7 @@ import matplotlib.animation as animation
 from numpy import shape
 import numpy as np
 import pickle
+import sys
 
 
 def init():
@@ -37,8 +38,11 @@ def animate(i):
 
     for artist in axl.artists:
         artist.remove()
-    qxforce = axl.arrow(newPq[0], newPq[1], 0.5*uval[0], 0.5*uval[1],
-                        length_includes_head=True, width=0.01)
+    if uval[0] != 0  and uval[1] != 0:
+        qxforce = axl.arrow(newPq[0], newPq[1], 0.5*uval[0], 0.5*uval[1],
+                            length_includes_head=True, width=0.01)
+    else:
+        qxforce = None
 
     newPz = s.xtopz(atj.x(t))
     newzb = s.xtoz(atj.x(t))
@@ -63,9 +67,10 @@ if __name__ == "__main__":
     rtj.interpolate()
 
     # now load the animation trajectory
-    infile = open(sys.argv[2], 'rb')
-    atj = pickle.load(infile)
-    infile.close()
+    if len(sys.argv) > 2:
+        infile = open(sys.argv[2], 'rb')
+        atj = pickle.load(infile)
+        infile.close()
     atj.interpolate()
 
     tmin = atj._t[0]

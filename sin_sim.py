@@ -122,7 +122,7 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 10)
+    tlims = (5, 6)
     ta, tb = tlims
 
     """
@@ -137,11 +137,11 @@ if __name__ == "__main__":
             s = SinFloor2D(k=10, g=10.0)
 
         # pick an initial point and velocity
-        qinit = np.array([-2.5*np.pi, 1])
-        qdoti = np.array([0.0, 0.0])
+        #qinit = np.array([-2.5*np.pi, 1])
+        #qdoti = np.array([0.0, 0.0])
 
-        xinit = np.concatenate((s.Psi(qinit),
-                                np.dot(s.dPsi(qinit), qdoti)))
+        #xinit = np.concatenate((s.Psi(qinit),
+        #                        np.dot(s.dPsi(qinit), qdoti)))
 
         nlsys = System(s.f, tlims=tlims, xinit=xinit,
                        dfdx=s.dfdx, dfdu=s.dfdu, algebra=s.P)
