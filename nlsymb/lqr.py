@@ -83,8 +83,8 @@ class CDRE(object):
 
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
-        #else:
-        self.jumps = []
+        else:
+            self.jumps = []
 
     def _Pdot(self, s, P):
         A, B = self.A(-s), self.B(-s)
@@ -123,7 +123,8 @@ class CDRE(object):
                 for (tj, fj) in self.jumps:
                     if prevtime > tj and tj > -solver.t:
                         #  positive sign because backwards integration
-                        P = P + matmult(fj.T, P) + matmult(P, fj)
+                        #P = P + matmult(fj.T, P) + matmult(P, fj)
+                        P = 0*P
                         solver.set_initial_value(P.ravel(), solver.t) 
             
             results.append((-solver.t, P))
@@ -200,8 +201,8 @@ class LQ(LQR):
 
         if 'jumps' in kwargs:
             self.jumps = kwargs['jumps']
-        #else:
-        self.jumps = []
+        else:
+            self.jumps = []
 
     def _bdot(self, s, b):
         A, B = self.A(-s), self.B(-s)
@@ -233,7 +234,8 @@ class LQ(LQR):
                 for (tj, fj) in self.jumps:
                     if prevtime > tj and tj > -solver.t:
                         # positive sign because backwards integration
-                        b = b + matmult(fj.T, b)
+                        #b = b + matmult(fj.T, b)
+                        b = 0*b
                         solver.set_initial_value(b, solver.t) 
 
             results.append((-solver.t, b))
@@ -299,7 +301,8 @@ class DescentDirection(object):
 
         xdot = lambda t, x: self._xdot(t, x)
         (t, x, jumps) = sysIntegrate(xdot, self.dx0, tlims=self.tlims,
-                                    jumps=self.jumps)
+                                    #jumps=self.jumps)
+                                     jumps=[])
         tj = Trajectory('x', 'u')
         for (tt, xx) in zip(t, x):
             tj.addpoint(tt, x=xx, u=self._controller(tt, xx))
