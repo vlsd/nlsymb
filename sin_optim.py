@@ -132,7 +132,7 @@ if __name__ == "__main__":
     ref.feasible = False # let's not assume feasibility
     ref_file.close()
 
-    tlims = (0, 1.9)
+    tlims = (0, 5)
     ta, tb = tlims
 
     """
@@ -167,12 +167,12 @@ if __name__ == "__main__":
             itj = Trajectory('x', 'u')
             #tmid1 = (2*tlims[0] + tlims[1])/3
             #tmid2 = (tlims[0] + 2*tlims[1])/3
-            itj.addpoint(tlims[0], x=xinit, u=np.array([1.0, 0.0]))
+            itj.addpoint(tlims[0], x=xinit, u=np.array([0.0, 0.0]))
             #itj.addpoint(tmid1,    x=ref.x(tmid1),    u=np.array([0.0, 0.0]))
             #itj.addpoint(tmid2,    x=ref.x(tmid2),    u=np.array([0.0, 0.0]))
             # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
             # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
-            itj.addpoint(tlims[1], x=xinit, u=np.array([1.0, 0.0]))
+            itj.addpoint(tlims[1], x=xinit, u=np.array([0.0, 0.0]))
 
         itj.xtoq(s)
         itj.interpolate()
@@ -184,8 +184,7 @@ if __name__ == "__main__":
         nlsys.delf = s.delf
 
         Rcost = lambda t: np.diag([5, 5])
-        #Qcost = lambda t: t*np.diag([100, 200, 1, 1])/tb
-        Qcost = lambda t: t*np.diag([10, 10, 1, 1])
+        Qcost = lambda t: t*np.diag([100, 200, 1, 1])/tb
 
         PTcost = np.diag([0,0,0,0])
         #PTcost = Qcost(tb)
