@@ -427,7 +427,7 @@ class SymSys(object):
 
         #out = 2*np.outer(fp-fm, dphi)/np.abs(matmult(fm+fp, dphi))
         #out = np.outer(fp-fm, dphi)/np.abs(matmult(fm, dphi))
-        out = -np.outer(fp, dphi)/matmult(dphi, fm) \
+        out = np.outer(fp, dphi)/matmult(dphi, fm) \
              #+ np.eye(len(fp)) - np.outer(dphi, dphi)/np.dot(dphi,dphi) 
 
         #Tracer()()

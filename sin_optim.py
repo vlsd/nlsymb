@@ -136,7 +136,7 @@ if __name__ == "__main__":
     # ref.tlims might be all jacked, lemme fix it first
     #ref.tlims = (min(ref._t), max(ref._t))
     #tlims = ref.tlims
-    tlims = (0, 5)
+    tlims = (0, 1.9)
     ta, tb = tlims
 
     """
@@ -239,7 +239,7 @@ if __name__ == "__main__":
                           colored("%f" % ddircost, 'yellow'))
 
                 if ls is None:
-                    alpha = 1 / ddircost
+                    alpha = max(1 / ddircost, 1e-3)
                 else:
                     alpha = ls.gamma * 10
                 ls = LineSearch(cost, cost.grad, alpha=alpha, beta=1e-8)
