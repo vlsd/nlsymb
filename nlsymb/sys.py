@@ -120,7 +120,7 @@ class System(object):
         if lin:
             print("linearizing...")
             self.lintraj = traj
-            self.regulator = LQR(self.tlims, traj.A, traj.B)
+            self.regulator = LQR(self.tlims, traj.A, traj.B, jumps=traj.jumps)
             self.regulator.solve()
 
         traj.feasible = True
