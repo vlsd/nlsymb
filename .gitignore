@@ -2,3 +2,5 @@
 *.sw*
 *__pycache__*
 edit.vim
+pkl
+*.mp4
