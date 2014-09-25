@@ -117,10 +117,12 @@ class System(object):
         if interp:
             traj.interpolate()
 
+        traj.jumps=jumps
+
         if lin:
             print("linearizing...")
             self.lintraj = traj
-            self.regulator = LQR(self.tlims, traj.A, traj.B, jumps=traj.jumps)
+            self.regulator = LQR(self.tlims, traj.A, traj.B)#, jumps=jumps)
             self.regulator.solve()
 
         traj.feasible = True

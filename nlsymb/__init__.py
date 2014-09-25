@@ -233,7 +233,7 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
         if jumps_in:
             for (tj, fj) in jumps_in:
                 if t[-1] < tj and tj < solver.t:
-                    xx = xx  + matmult(fj,xx)
+                    xx = matmult(fj,xx)
                     solver.set_initial_value(xx, solver.t)
 
         x.append(xx)

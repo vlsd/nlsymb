@@ -124,7 +124,8 @@ class CDRE(object):
                     if prevtime > tj and tj > -solver.t:
                         #  positive sign because backwards integration
                         #P = P + matmult(fj, P) + matmult(P, fj) \
-                                #+ matmult(fj, P, fj)
+                        #        + matmult(fj, P, fj)
+                        #P = matmult(fj.T, P, fj.T)
                         P = 0.0*P
                         solver.set_initial_value(P.ravel(), solver.t) 
             
@@ -235,7 +236,7 @@ class LQ(LQR):
                 for (tj, fj) in self.jumps:
                     if prevtime > tj and tj > -solver.t:
                         # positive sign because backwards integration
-                        b = b + matmult(fj, b)
+                        b = matmult(fj.T, b)
                         #b = 0*b
                         solver.set_initial_value(b, solver.t) 
 
