@@ -160,6 +160,8 @@ if __name__ == "__main__":
             itj = pickle.load(init_file)
             init_file.close()
             itj.feasible = False # let's not assume feasibility
+            if not hasattr(itj, 'jumps'):
+                itj.jumps=[]
         else:
             # make an initial guess trajectory
             qinit = np.array([0.0, 1.0])
@@ -177,6 +179,7 @@ if __name__ == "__main__":
             # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
             # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
             itj.addpoint(tlims[1], x=xinit, u=np.array([0.0, 0.0]))
+            itj.jumps=[]
 
         itj.xtoq(s)
         itj.interpolate()
