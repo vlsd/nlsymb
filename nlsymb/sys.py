@@ -117,8 +117,6 @@ class System(object):
         if interp:
             traj.interpolate()
 
-        traj.jumps=jumps
-
         if lin:
             print("linearizing...")
             self.lintraj = traj

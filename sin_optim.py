@@ -136,7 +136,7 @@ if __name__ == "__main__":
     # ref.tlims might be all jacked, lemme fix it first
     #ref.tlims = (min(ref._t), max(ref._t))
     #tlims = ref.tlims
-    tlims = (0, 1.9)
+    tlims = (0, 4)
     ta, tb = tlims
 
     """
@@ -190,7 +190,7 @@ if __name__ == "__main__":
         nlsys.ref = ref
         nlsys.delf = s.delf
 
-        Rcost = lambda t: np.diag([5, 5])
+        Rcost = lambda t: np.diag([1, 1])
         Qcost = lambda t: t*np.diag([100, 200, 1, 1])/tb
         #Qcost = lambda t: t*np.diag([10, 10, 1, 1])
 

@@ -125,8 +125,8 @@ class CDRE(object):
                         #  positive sign because backwards integration
                         #P = P + matmult(fj, P) + matmult(P, fj) \
                         #        + matmult(fj, P, fj)
-                        #P = matmult(fj.T, P, fj.T)
-                        P = 0.0*P
+                        P = matmult(fj, P, fj.T)
+                        #P = 0.0*P
                         solver.set_initial_value(P.ravel(), solver.t) 
             
             results.append((-solver.t, P))
