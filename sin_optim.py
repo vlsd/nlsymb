@@ -136,7 +136,7 @@ if __name__ == "__main__":
     # ref.tlims might be all jacked, lemme fix it first
     #ref.tlims = (min(ref._t), max(ref._t))
     #tlims = ref.tlims
-    tlims = (0, 4)
+    tlims = (0, 3)
     ta, tb = tlims
 
     """
@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
         index = 0
         ls = None
-        while ddircost > 1e-3:
+        while ddircost > 1e-3 and index < 20:
             index = index + 1
 
             with Timer("line search "):

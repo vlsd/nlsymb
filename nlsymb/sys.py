@@ -410,20 +410,15 @@ class SymSys(object):
         # between fplus and fminus at (t, x)
         params = np.concatenate(([t], xval, uval))
         dphi = self.dphi(xval)
-
         
-        #if matmult(xval[-self.dim:],dphi[:self.dim]) > 0:
-        fp = self._fplus.func(*params)
-        fm = self._fmins.func(*params)
-        #else:
-        #    fp = self._fmins.func(*params)
-        #    fm = self._fplus.func(*params)
-        
-        # this assumes x = [z, zdot]
-        #M = tn.eval(self.Mz, self.z, xval[:self.dim])
-        #M = scipy.linalg.block_diag(M, np.eye(self.dim))
-        #Mi = np.linalg.inv(M)
-        #dphi = matmult(M, dphi)
+        # determine if going from f- to f+
+        # or vice-versa
+        if matmult(dphi[:self.dim],xval[-self.dim:]) > 0:
+            fp = self._fplus.func(*params)
+            fm = self._fmins.func(*params)
+        else:
+            fp = self._fmins.func(*params)
+            fm = self._fplus.func(*params)
 
         #out = 2*np.outer(fp-fm, dphi)/np.abs(matmult(fm+fp, dphi))
         #out = np.outer(fp-fm, dphi)/np.abs(matmult(fm, dphi))
