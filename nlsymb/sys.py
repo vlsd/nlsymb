@@ -205,6 +205,9 @@ class SymSys(object):
     # such that needed attributes, like q, x, M, etc. are implemented
     # before calling __init__()
     def __init__(self, si=0, **kwargs):
+        self.a1 = 2.0
+        self.a2 = 10.0
+        self.a3 = 0.0
         # this is the special index: z[si] = phi(z)
         self.si = si
         self.t = S('t')
@@ -294,13 +297,16 @@ class SymSys(object):
 
     # \dot{x}=f(x)
     def _makefp(self, params):
+        a1, a2, a3 = self.a1, self.a2, self.a3
+        
         zdot = self.x[self.dim:]
 
         si = self.si
         zs = self.z[si]
         zds = zdot[si]
         contactdrag = self.dim * [symbol.Zero]
-        contactdrag[si] = -10.0*zds / ((1+3*sym.exp(zds))*sym.cosh(10.0 * zs))
+        contactdrag[si] = -a1 * zds / \
+                ((1+a3*sym.exp(zds))*sym.cosh(a2 * zs))
 
         out = np.concatenate((zdot,
                               np.dot(self.Mzi,
@@ -320,6 +326,8 @@ class SymSys(object):
         return out
 
     def _makefm(self, params):
+        a1, a2, a3 = self.a1, self.a2, self.a3
+        
         zdot = self.x[self.dim:]
         OhmP = tn.subs(self._Ohm, zip(self.z, self._P))
         OhmI = tn.subs(self._dPsi, zip(self.q, OhmP))
@@ -331,7 +339,7 @@ class SymSys(object):
         zzs = zz[si]
         zzds = zzdot[si]
         contactdrag = self.dim * [symbol.Zero]
-        contactdrag[si] = -10.0*zzds / ((1+3*sym.exp(-zzds))*sym.cosh(10.0 * zzs))
+        contactdrag[si] = -a1*zzds / ((1+a3*sym.exp(-zzds))*sym.cosh(a2 * zzs))
 
         out = -tn.einsum('i,ijk,k', zzdot, self.dMzz, zzdot) \
             + tn.einsum('i,ikj,k', zzdot, self.dMzz, zzdot) / 2
@@ -356,11 +364,11 @@ class SymSys(object):
         zs = z[si]
         out = deepcopy(z)
 
-        #out[si] = -zs
+        out[si] = -zs
         for i in range(len(z)):
             if i != si:
-                out[i] = z[i] - self.delta[i] * zs / (1 + k * zs ** 2)
-        out[si] = -zs
+                out[i] = z[i] - self.delta[i] * 2 * zs / (1 + k * zs ** 2)
+        #out[si] = -zs
 
         return np.array(out)
 
@@ -418,30 +426,32 @@ class SymSys(object):
         dphi = np.zeros(len(xval))
         dphi[self.si] = 1
         return dphi
-
+   
     def _delf(self, t, xval, uval):
         # calculates the jump term assuming the field switches
         # between fplus and fminus at (t, x)
         params = np.concatenate(([t], xval, uval))
-        
-        fp = self._fplus.func(*params)
-        fm = self._fmins.func(*params)
         dphi = self.dphi(xval)
-        
-        # this assumes x = [z, zdot]
-        #M = tn.eval(self.Mz, self.z, xval[:self.dim])
-        #M = scipy.linalg.block_diag(M, np.eye(self.dim))
-        #Mi = np.linalg.inv(M)
-        #dphi = matmult(M, dphi)
 
-        out = -np.outer(fp-fm, dphi)/matmult(fp, dphi)
-        
+        # determine if going from f- to f+
+        # or vice-versa
+        if matmult(dphi[:self.dim],xval[-self.dim:]) > 0:
+            fp = self._fplus.func(*params)
+            fm = self._fmins.func(*params)
+        else:
+            fp = self._fmins.func(*params)
+            fm = self._fplus.func(*params)
+
+        #out = 2*np.outer(fp-fm, dphi)/np.abs(matmult(fm+fp, dphi))
+        #out = np.outer(fp-fm, dphi)/np.abs(matmult(fm, dphi))
+        out = np.outer(fp, dphi)/matmult(dphi, fm) \
+             #+ np.eye(len(fp)) - np.outer(dphi, dphi)/np.dot(dphi,dphi)
+
         #Tracer()()
         #out = np.zeros((2*self.dim, 2*self.dim))
         #for i in range(self.dim):
         #    out[self.si, i] = -M[self.si, i]
         return out
-
 
 class SinFloor2D(SymSys):
     # two dimensional point mass, sinusoidal floor

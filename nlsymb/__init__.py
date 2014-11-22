@@ -172,6 +172,10 @@ class LineSearch():
             except TimeoutError:
                 gamma = gamma / 10
                 print("Timed out, decreasing gamma to %e" % gamma)
+            except OverflowError:
+                gamma = gamma / 10
+                print("Error in VODE, decreasing gamma to %e" % gamma)
+
         self.gamma = gamma
 
 
@@ -222,14 +226,14 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
     jumps_out = []
     jumps_in = kw['jumps'] if 'jumps' in kw else []
 
-    while solver.successful() and solver.t < tf + 1e-2:
+    while solver.successful() and solver.t <= tf:
         solver.integrate(tf, relax=True, step=True)
         
         xx = solver.y
         if jumps_in:
             for (tj, fj) in jumps_in:
                 if t[-1] < tj and tj < solver.t:
-                    xx = xx  + matmult(fj,xx)
+                    xx = matmult(fj,xx)
                     solver.set_initial_value(xx, solver.t)
 
         x.append(xx)
@@ -246,8 +250,6 @@ def sysIntegrate(func, init, control=None, phi=None, debug=False,
                 xcross = x[-2] - alpha * (x[-1] - x[-2])
 
                 # replace the wrong values
-                #si = 1
-                #xcross[si] = 0.0
                 t[-1], x[-1] = (tcross, xcross)
 
                 # obtain jump term

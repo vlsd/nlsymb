@@ -2,6 +2,7 @@
 # will not work with python3.3
 # TODO figure out why!?
 
+import sys
 import numpy as np
 import sympy as sym
 from sympy import Symbol as S
@@ -62,6 +63,7 @@ def DPlot(tj, s, fig=None, clear=False,
 
 
 def TPlot(tj, s, fig=None, ax=None, init=False,
+          #xlims=(-3.1, 0.2), ylims=(-1.6, 1.1), label="",
           xlims=(-3.1, 0.2), ylims=(-1.6, 1.1), label="",
           **kwargs):
     import matplotlib.pyplot as plt
@@ -123,7 +125,18 @@ if __name__ == "__main__":
                 'nlsymb.scipy', 'nlsymb.copy', 'copy', 'nlsymb.time',
                 'scipy.linalg', 'numpy.linalg']
 
-    tlims = (0, 1.9)
+    # load the reference (target) trajectory
+    ref_fn = sys.argv[1]
+    ref_file = open(ref_fn, 'rb')
+    ref = pickle.load(ref_file)
+    ref.feasible = False # let's not assume feasibility
+    ref_file.close()
+
+
+    # ref.tlims might be all jacked, lemme fix it first
+    #ref.tlims = (min(ref._t), max(ref._t))
+    #tlims = ref.tlims
+    tlims = (0, 3)
     ta, tb = tlims
 
     """
@@ -137,30 +150,37 @@ if __name__ == "__main__":
             #s = FlatFloor2D(k=3)
             s = SinFloor2D(k=3)
 
-        # load the reference (target) trajectory
-        ref_file = open('pkl/sin_forced.p', 'rb')
-        ref = pickle.load(ref_file)
-        ref_file.close()
         # ref.xtonq(s)
         ref.interpolate()
         ref.tlims = tlims
 
-        # make an initial guess trajectory
-        qinit = np.array([0.0, 1.0])
-        qdoti = np.array([0.0, 0.0])
+        if len(sys.argv)>2:
+            # initial trajectory was passed to us, use it
+            init_file = open(sys.argv[2], 'rb')
+            itj = pickle.load(init_file)
+            init_file.close()
+            itj.feasible = False # let's not assume feasibility
+            if not hasattr(itj, 'jumps'):
+                itj.jumps=[]
+        else:
+            # make an initial guess trajectory
+            qinit = np.array([0.0, 1.0])
+            qdoti = np.array([0.0, 0.0])
 
-        xinit = np.concatenate((s.Psi(qinit),
-                                np.dot(s.dPsi(qinit), qdoti)))
+            xinit = np.concatenate((s.Psi(qinit),
+                                    np.dot(s.dPsi(qinit), qdoti)))
 
-        itj = Trajectory('x', 'u')
-        #tmid1 = (2*tlims[0] + tlims[1])/3
-        #tmid2 = (tlims[0] + 2*tlims[1])/3
-        itj.addpoint(tlims[0], x=ref.x(tlims[0]), u=np.array([0.0, 0.0]))
-        #itj.addpoint(tmid1,    x=ref.x(tmid1),    u=np.array([0.0, 0.0]))
-        #itj.addpoint(tmid2,    x=ref.x(tmid2),    u=np.array([0.0, 0.0]))
-        # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
-        # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
-        itj.addpoint(tlims[1], x=ref.x(tlims[1]), u=np.array([0.0, 0.0]))
+            itj = Trajectory('x', 'u')
+            #tmid1 = (2*tlims[0] + tlims[1])/3
+            #tmid2 = (tlims[0] + 2*tlims[1])/3
+            itj.addpoint(tlims[0], x=xinit, u=np.array([0.0, 0.0]))
+            #itj.addpoint(tmid1,    x=ref.x(tmid1),    u=np.array([0.0, 0.0]))
+            #itj.addpoint(tmid2,    x=ref.x(tmid2),    u=np.array([0.0, 0.0]))
+            # itj.addpoint(tlims[0], x=ref.x(tlims[0])*1.1, u=ref.u(tlims[0]))
+            # itj.addpoint(1.5, x=ref.x(1.5), u=ref.u(1.5))
+            itj.addpoint(tlims[1], x=xinit, u=np.array([0.0, 0.0]))
+            itj.jumps=[]
+
         itj.xtoq(s)
         itj.interpolate()
 
@@ -170,10 +190,12 @@ if __name__ == "__main__":
         nlsys.ref = ref
         nlsys.delf = s.delf
 
-        Rcost = lambda t: np.diag([10, 10])
-        Qcost = lambda t: np.diag([10, 10, 1, 1])
+        Rcost = lambda t: np.diag([1, 1])
+        Qcost = lambda t: t*np.diag([100, 200, 1, 1])/tb
+        #Qcost = lambda t: t*np.diag([10, 10, 1, 1])
 
-        PTcost = Qcost(tb)
+        PTcost = np.diag([0,0,0,0])
+        #PTcost = Qcost(tb)
 
         # zerocontrol = Controller(reference=ref)
         # nlsys.set_u(zerocontrol)
@@ -205,13 +227,14 @@ if __name__ == "__main__":
 
         index = 0
         ls = None
-        while ddircost > 1e-7:
-            index = index + 1
+        for index in xrange(1, 11):
+            #index = index + 1
 
-            with Timer("descent direction and line search "):
+            with Timer("line search "):
                 if index is not 1:
                     costs.append(cost(tj))
-                    print("[cost]\t\t" + colored("%f" % costs[-1], 'blue'))
+                    print("[cost]\t\t\t" + colored("%f" % costs[-1], 'blue'))
+                    print("[iteration]\t\t" + colored("%d" % index, 'green'))
 
                     ddir = descdir.direction
                     ddircost = cost(ddir, tspace=True)
@@ -220,7 +243,8 @@ if __name__ == "__main__":
                           colored("%f" % ddircost, 'yellow'))
 
                 if ls is None:
-                    alpha = 100 / ddircost
+                    #alpha = max(1 / ddircost, 1e-3)
+                    alpha = 1e-1
                 else:
                     alpha = ls.gamma * 10
                 ls = LineSearch(cost, cost.grad, alpha=alpha, beta=1e-8)
@@ -234,15 +258,20 @@ if __name__ == "__main__":
             with Timer("second projection"):
                 tj = nlsys.project(tj, tlims=tlims, lin=True)
                 trajectories.append(tj)
-
+            with Timer("saving trajectory to file"):
+                ofile = open('pkl/sin_plastic_opt_tj.p','wb')
+                pickle.dump(tj, ofile)
+                ofile.close()
+                                            
             cost = nlsys.build_cost(R=Rcost, Q=Qcost, PT=PTcost)
             q = lambda t: matmult(tj.x(t) - ref.x(t), Qcost(t))
             r = lambda t: matmult(tj.u(t) - ref.u(t), Rcost(t))
             qf = matmult(tj.x(tb) - ref.x(tb), PTcost)
 
-            descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
+            with Timer("descent direction"):
+                descdir = GradDirection(tlims, tj.A, tj.B, jumps=tj.jumps,
                                     q=q, r=r, qf=qf)
-            descdir.solve()
+                descdir.solve()
 
 
     # tjt = tj
